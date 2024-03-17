@@ -1,0 +1,15 @@
+[Unit]
+Description=GuppyFLO
+Requires=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=1
+User=%USER%
+WorkingDirectory=%WORK_DIR%
+ExecStart="%GUPPY_EXEC%"
+
+[Install]
+WantedBy=multi-user.target

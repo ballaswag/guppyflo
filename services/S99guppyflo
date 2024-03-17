@@ -1,0 +1,46 @@
+#!/bin/sh
+
+GUPPY_DIR=/usr/data/guppyflo
+GUPPYFLO=$GUPPY_DIR/guppyflo
+LIBEINFO=$GUPPY_DIR/services/respawn/libeinfo.so.1
+LIBRC=$GUPPY_DIR/services/respawn/librc.so.1
+PID_FILE=/var/run/guppyflo.pid
+RC_DIR=/run/openrc
+SUPERVISE_DAEMON=/usr/data/guppyflo/services/respawn/supervise-daemon
+SVC_NAME=guppyflo
+
+start_server(){
+
+    sync && echo 3 > /proc/sys/vm/drop_caches
+    mkdir -p $RC_DIR
+
+    # need to check for now if installers skips the symlink
+    [ ! -f $LIBEINFO ] && ln -sf $LIBEINFO /lib/libeinfo.so.1
+    [ ! -f $LIBRC ] && ln -sf $LIBRC /lib/librc.so.1
+    
+    RC_SVCNAME=$SVC_NAME $SUPERVISE_DAEMON $SVC_NAME --start --chdir $GUPPY_DIR --pidfile $PID_FILE $GUPPYFLO
+}
+
+stop_server(){
+    RC_SVCNAME=$SVC_NAME $SUPERVISE_DAEMON $SVC_NAME --stop --pidfile $PID_FILE
+}
+
+
+case "$1" in
+    start)
+        start_server
+        ;;
+    stop)
+        stop_server
+        ;;
+    restart|reload)
+        "$0" stop
+        "$0" start
+        ;;
+    *)
+        echo "Usage:"
+        echo "    $0 {start|stop|restart}"
+        exit 1
+esac
+
+exit $?

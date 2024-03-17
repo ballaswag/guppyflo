@@ -25,7 +25,7 @@ GuppyFLO is a self-hosted service that enables local/remote management of multip
 
 ## Install
 ```
-script
+wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh | sh
 ```
 
 ## Configuration
