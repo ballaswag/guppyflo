@@ -10,7 +10,7 @@ GuppyFLO is a self-hosted service that enables local/remote management of multip
     <a aria-label="Forks" href="https://github.com/ballaswag/guppyflo/network/members">
       <img src="https://img.shields.io/github/forks/ballaswag/guppyflo?style=flat-square">
   </a>
-    <a aria-label="License" href="https://github.com/ballaswag/guppyflo/blob/develop/LICENSE">
+    <a aria-label="License" href="https://github.com/ballaswag/guppyflo/blob/main/LICENSE">
       <img src="https://img.shields.io/github/license/ballaswag/guppyflo?style=flat-square">
   </a>
   <a aria-label="Sponsor" href="https://github.com/sponsors/ballaswag">
