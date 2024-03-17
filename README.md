@@ -78,5 +78,5 @@ GuppyFLO allows unlimited WebRTC camera access only limited by your ISP bandwidt
 ## Credit
 [Moonraker](https://github.com/Arksine/moonraker)  
 [Fluidd](https://github.com/fluidd-core/fluidd)  
-[go2rtc](https://github.com/AlexxIT/go2rtc)
-[ngrok-go](https://github.com/ngrok/ngrok-go)
+[go2rtc](https://github.com/AlexxIT/go2rtc)  
+[ngrok-go](https://github.com/ngrok/ngrok-go)  
