@@ -90,9 +90,12 @@ function Printers() {
 }
 
 function PrintersSummary({printers}) {
-  const byState = Map.groupBy(printers, (p) => p.stats.state)
-  const printing = (byState.get('printing') || []).length
-  const offline = (byState.get('offline') || []).length
+  const byState = printers.reduce(function (rv, p) {
+    (rv[p.stats.state] = rv[p.stats.state] || []).push(p);
+    return rv;
+  }, {});
+  const printing = (byState['printing'] || []).length
+  const offline = (byState['offline'] || []).length
   const standby = printers.length - printing - offline
 
   return (

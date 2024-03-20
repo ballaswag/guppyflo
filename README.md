@@ -28,9 +28,11 @@ wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh
 1. Global view of all your Klipper/Moonraker printers.
 2. Fluidd opens directly to printer of desired printer (no need to mock with switching printers in the Fluidd UI).
 3. Unlimited `go2rtc` WebRTC cameras.
-4. Free and secure remote access with `ngrok` (paid `ngrok` subscription availiable via their terms).
-5. Unlimited local access.
-6. Multiplatform support (runs in Linux/Windows x86_64, buildroot mipsle, PI ARMv6).
+4. Integrated Tailscale.
+5. Free and secure remote access with `ngrok` (paid `ngrok` subscription availiable via their terms).
+6. Unlimited local access.
+7. Multiplatform support (runs in Linux/Windows x86_64, buildroot mipsle, PI ARMv6).
+8. MobileRaker via `tailscale`
 
 ## Roadmap
 1. More camera service support (e.g. ustreamer/camera-streamer)
@@ -44,6 +46,14 @@ wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh
 ### Local Access
 GuppyFLO starts locally on port `9873`. Open a browser and go to `<guppyflo-host-ip>:9873` for local accces.
 
+### Remote Access via Tailscale
+GuppyFlo support secure remote access via Tailscale. You can sign up a free accout [here](https://login.tailscale.com/start).
+
+1. Once you have a `tailscale` account, open browser to `http://<guppyflo-host-ip>:9873`.
+2. Click the `tailscale` authentication link to add GuppyFLO as a `tailscale` device.
+3. Done! Now you can access GuppyFLO and all your guppy managed printers via your `tailnet`.
+4. On any device running `tailscale`, open your browser to [http://guppyflo](http://guppyflo).
+
 ### Remote Access via ngrok
 GuppyFLO supports secure and authenticated remote access using ngrok. You can sign up for a free account [here](https://dashboard.ngrok.com/signup).
 
@@ -56,6 +66,15 @@ GuppyFLO supports secure and authenticated remote access using ngrok. You can si
 7. The ngrok remote URL is found in GuppyFLO logs, or in your [ngrok dashboard](https://dashboard.ngrok.com/cloud-edge/endpoints)
 
 <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo-settings.png" alt="GuppyFLO Settings" width="700"/>
+
+### MobileRaker via Tailscale
+If you enable `tailscale`, you can add all your guppy managed printer in MobileRaker.
+
+1. In the GuppyFLO dashboard, find the printer link by pointing at the `Fluidd` button, e.g. `http://guppyflo/printer-390877414/fluidd`
+2. In MobileRaker, click `Advanced`
+3. `Printer - Address` is `guppyflo/printer-390877414/fluidd`
+4. `Websocket - Address` is `guppyflo/printer-390877414/fluidd/websocket`
+5. Click `Test Connection`, `Continue`
 
 ### Camera Setup
 GuppyFLO allows unlimited WebRTC camera access only limited by your ISP bandwidth cap. Currently, `go2rtc` is the only support WebRTC camera service, more support will be added later. Refer to [go2rtc](https://github.com/AlexxIT/go2rtc) for setting up webcams and WebRTC. To add a `go2rtc` WebRTC camera:
