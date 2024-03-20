@@ -4,82 +4,84 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"hash/fnv"
 	"io/ioutil"
-	"os"
-	"sync"
-	"sort"
-	"time"
-	"fmt"
 	"log"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
+	"sort"
+	"sync"
+	"time"
+
 	"github.com/NYTimes/gziphandler"
-	
+
 	"golang.ngrok.com/ngrok"
 	"golang.ngrok.com/ngrok/config"
 
 	ngrokclient "github.com/ngrok/ngrok-api-go/v5"
 	ngrokclientCredentials "github.com/ngrok/ngrok-api-go/v5/credentials"
+
+	"tailscale.com/tsnet"
 )
 
 type PrinterStats struct {
-	Filename string `json:"filename"`
-	State string `json:"state"`
+	Filename      string  `json:"filename"`
+	State         string  `json:"state"`
 	TotalDuration float64 `json:"total_duration"`
 	PrintDuration float64 `json:"print_duration"`
-	Filamentused float64 `json:"filament_used"`
-	Message string `json:"message"`
-	Info struct {
-		TotalLayer *string `json:"total_layer"`
+	Filamentused  float64 `json:"filament_used"`
+	Message       string  `json:"message"`
+	Info          struct {
+		TotalLayer   *string `json:"total_layer"`
 		CurrentLayer *string `json:"current_layer"`
-	} `json:"info"`	
+	} `json:"info"`
 }
 
 type VirtualSDCard struct {
-	FilePath *string `json:"file_path"`
-	Progress float64 `json:"progress"`
-	Active bool `json:"is_active"`
-	FilePosition int `json:"file_position"`
-	FileSize int `json:"file_size"`
+	FilePath     *string `json:"file_path"`
+	Progress     float64 `json:"progress"`
+	Active       bool    `json:"is_active"`
+	FilePosition int     `json:"file_position"`
+	FileSize     int     `json:"file_size"`
 }
 
 type MoonrakerPrinterStats struct {
 	Result struct {
 		Status struct {
-			Stats PrinterStats`json:"print_stats"`
-			SDCard VirtualSDCard`json:"virtual_sdcard"`
+			Stats  PrinterStats  `json:"print_stats"`
+			SDCard VirtualSDCard `json:"virtual_sdcard"`
 		}
 		EventTime float64 `json:"eventtime"`
 	} `json:"result"`
 }
 
 type PrinterInfoStatsPair struct {
-	PrinterId string `json:"id"`
+	PrinterId   string          `json:"id"`
 	PrinterInfo GTPrinterConfig `json:"printer"`
-	Stats PrinterStats `json:"stats"`
-	SDCard VirtualSDCard`json:"virtual_sdcard"`
+	Stats       PrinterStats    `json:"stats"`
+	SDCard      VirtualSDCard   `json:"virtual_sdcard"`
 }
 
 type GTPrinterCamerasConfig struct {
-	Id string `json:"id,omitempty"`
-	Path string `json:"path"`
-	CameraIp string `json:"camera_ip"`
-	CameraPort int `json:"camera_port"`
-	Type string `json:"type"`
+	Id         string `json:"id,omitempty"`
+	Path       string `json:"path"`
+	CameraIp   string `json:"camera_ip"`
+	CameraPort int    `json:"camera_port"`
+	Type       string `json:"type"`
 }
 
 type GTPrinterConfig struct {
-	Name string `json:"printer_name"`
-	MoonrakerIP string `json:"moonraker_ip"`	
-	MoonrakerPort int `json:"moonraker_port"`
-	Cameras []GTPrinterCamerasConfig `json:"cameras"`
-	
+	Name          string                   `json:"printer_name"`
+	MoonrakerIP   string                   `json:"moonraker_ip"`
+	MoonrakerPort int                      `json:"moonraker_port"`
+	Cameras       []GTPrinterCamerasConfig `json:"cameras"`
 }
 
 type GTOAuthConfig struct {
-	Provider string `json:"provider"`
+	Provider    string   `json:"provider"`
 	OAuthEmails []string `json:"oauth_emails"`
 }
 
@@ -87,18 +89,19 @@ type GTConfig struct {
 	Printers []GTPrinterConfig `json:"printers,omitempty"`
 	// Fluidd *string `json:"fluidd"`
 	// Mainsail *string `json:"mainsail"`
-	NgrokApiKey *string `json:"ngrok_api_key,omitempty"`
-	NgrokAuthToken *string `json:"ngrok_auth_token,omitempty"`
-	OAuthConfig []GTOAuthConfig `json:"oauth_config,omitemptyp"`
-	GuppyFloPort int `json:"guppyflo_local_port"`
+	NgrokApiKey    *string         `json:"ngrok_api_key,omitempty"`
+	NgrokAuthToken *string         `json:"ngrok_auth_token,omitempty"`
+	OAuthConfig    []GTOAuthConfig `json:"oauth_config,omitempty"`
+	GuppyFloPort   int             `json:"guppyflo_local_port"`
 }
 
 type GTUISettings struct {
-	NgrokApiKey string `json:"ngrok_api_key"`
-	NgrokAuthToken string `json:"ngrok_auth_token"`
+	NgrokApiKey        string `json:"ngrok_api_key"`
+	NgrokAuthToken     string `json:"ngrok_auth_token"`
 	NgrokOAuthProvider string `json:"ngrok_oauth_provider"`
-	NgrokOAuthEmail string `json:"ngrok_oauth_email"`
-	GuppyFloPort int `json:"guppyflo_local_port"`
+	NgrokOAuthEmail    string `json:"ngrok_oauth_email"`
+	GuppyFloPort       int    `json:"guppyflo_local_port"`
+	TSAuthURL          string `json:"ts_auth_url,omitempty"`
 }
 
 type Pair[T, U any] struct {
@@ -161,14 +164,15 @@ func createNgrokToken(ctx context.Context, ngrokKey string) (*string, error) {
 }
 
 var (
-	Printers map[string]PrinterInfoStatsPair
-	PrinterQuitChannels map[string]chan bool	
-	PrintersMapLock sync.RWMutex
+	Printers            map[string]PrinterInfoStatsPair
+	PrinterQuitChannels map[string]chan bool
+	PrintersMapLock     sync.RWMutex
 
-	gtconfig = loadGTConfig("guppytunnel.json")	
+	TSAuthURL    string
+	gtconfig     = loadGTConfig("guppytunnel.json")
 	GTConfigLock sync.RWMutex
-	
-	c = make(chan Pair[PrinterInfoStatsPair, chan bool])
+
+	c      = make(chan Pair[PrinterInfoStatsPair, chan bool])
 	client = http.Client{Timeout: 3 * time.Second}
 )
 
@@ -196,8 +200,8 @@ func run(ctx context.Context) error {
 	startPrinterPoller(gtconfig.Printers)
 	startPrinterDataConsumer()
 
-	enableNgrok := (gtconfig.NgrokApiKey != nil || gtconfig.NgrokAuthToken != nil ) &&  len(gtconfig.OAuthConfig) > 0
-	
+	enableNgrok := (gtconfig.NgrokApiKey != nil || gtconfig.NgrokAuthToken != nil) && len(gtconfig.OAuthConfig) > 0
+
 	if gtconfig.NgrokApiKey == nil {
 		log.Println("Ngrok API Key is missing. Please add your Ngrok API Key to the configure file for remote tunneling.")
 	}
@@ -217,11 +221,11 @@ func run(ctx context.Context) error {
 	}
 
 	// populate printers
-	PrintersMapLock.Lock()	
+	PrintersMapLock.Lock()
 	for _, p := range gtconfig.Printers {
 		printerId := fmt.Sprintf("printer-%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
 		Printers[printerId] = PrinterInfoStatsPair{
-			PrinterId: printerId,
+			PrinterId:   printerId,
 			PrinterInfo: p,
 			Stats: PrinterStats{
 				State: "offline",
@@ -240,8 +244,8 @@ func run(ctx context.Context) error {
 		http.ServeFile(w, r, "www/index.html")
 	})
 	guppyMux.Handle("/assets/", guppyFloHandler)
-	
- 	guppyMux.HandleFunc("/v1/api/printers", func(w http.ResponseWriter, r *http.Request) {
+
+	guppyMux.HandleFunc("/v1/api/printers", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
 			PrintersMapLock.RLock()
@@ -284,22 +288,22 @@ func run(ctx context.Context) error {
 			for camIdx := range p.Cameras {
 				cameraId := fmt.Sprintf("camera-%d", hash(fmt.Sprintf("%s:%d",
 					p.Cameras[camIdx].CameraIp, p.Cameras[camIdx].CameraPort)))
-				
+
 				p.Cameras[camIdx].Id = cameraId
 			}
 
 			newPrinter := PrinterInfoStatsPair{
-				PrinterId: printerId,
+				PrinterId:   printerId,
 				PrinterInfo: p,
 				Stats: PrinterStats{
 					State: "offline",
 				},
 				SDCard: VirtualSDCard{},
-			}			
+			}
 
 			Printers[printerId] = newPrinter
 			PrintersMapLock.Unlock()
-			
+
 			startPrinterPoller([]GTPrinterConfig{p})
 			setupFluiddPrinterRoutes(guppyMux, []GTPrinterConfig{p})
 
@@ -327,7 +331,7 @@ func run(ctx context.Context) error {
 				quitChannel, exists := PrinterQuitChannels[printerId]
 				if exists {
 					quitChannel <- true
-					delete(PrinterQuitChannels, printerId)					
+					delete(PrinterQuitChannels, printerId)
 				}
 
 				PrintersMapLock.Unlock()
@@ -338,14 +342,14 @@ func run(ctx context.Context) error {
 		default:
 			http.Error(w, "405 unsupported method", http.StatusMethodNotAllowed)
 		}
-		
+
 	})
 
 	guppyMux.HandleFunc("/v1/api/settings", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case "GET":
 			GTConfigLock.RLock()
-			defer GTConfigLock.RUnlock()			
+			defer GTConfigLock.RUnlock()
 
 			w.Header().Set("Content-Type", "application/json")
 			var provider string = "google"
@@ -358,25 +362,29 @@ func run(ctx context.Context) error {
 				}
 			}
 
-			var apiKey string;
+			var apiKey string
 			if gtconfig.NgrokApiKey != nil {
 				apiKey = *gtconfig.NgrokApiKey
 			}
 
-			var authToken string;
+			var authToken string
 			if gtconfig.NgrokAuthToken != nil {
 				authToken = *gtconfig.NgrokAuthToken
 			}
 
-			setting := GTUISettings{
-				NgrokApiKey: apiKey,
-				NgrokAuthToken: authToken,
+			settings := GTUISettings{
+				NgrokApiKey:        apiKey,
+				NgrokAuthToken:     authToken,
 				NgrokOAuthProvider: provider,
-				NgrokOAuthEmail: oauthEmail,
-				GuppyFloPort: gtconfig.GuppyFloPort,
+				NgrokOAuthEmail:    oauthEmail,
+				GuppyFloPort:       gtconfig.GuppyFloPort,
 			}
 
-			err := json.NewEncoder(w).Encode(&setting)
+			if TSAuthURL != "" {
+				settings.TSAuthURL = TSAuthURL
+			}
+
+			err := json.NewEncoder(w).Encode(&settings)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -405,7 +413,7 @@ func run(ctx context.Context) error {
 
 			saveGTConfig(gtconfig)
 			GTConfigLock.Unlock()
-			
+
 			err = json.NewEncoder(w).Encode(&s)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -415,19 +423,18 @@ func run(ctx context.Context) error {
 		default:
 			http.Error(w, "405 unsupported method", http.StatusMethodNotAllowed)
 		}
-		
+
 	})
-	
 
 	// if gtconfig.Fluidd != nil {
-		fluiddMux := http.NewServeMux()
-		fluiddMux.Handle("/", gziphandler.GzipHandler(http.FileServer(http.Dir("fluidd"))))
+	fluiddMux := http.NewServeMux()
+	fluiddMux.Handle("/", gziphandler.GzipHandler(http.FileServer(http.Dir("fluidd"))))
 
-		go func() {
-			log.Fatal(http.ListenAndServe(":9871", fluiddMux))
-		}()
+	go func() {
+		log.Fatal(http.ListenAndServe(":9871", fluiddMux))
+	}()
 
-		setupFluiddPrinterRoutes(guppyMux, gtconfig.Printers)
+	setupFluiddPrinterRoutes(guppyMux, gtconfig.Printers)
 	// }
 
 	// if gtconfig.Mainsail != nil {
@@ -440,11 +447,57 @@ func run(ctx context.Context) error {
 
 	// }
 
+	tsServer := new(tsnet.Server)
+	tsServer.Hostname = "guppyflo"
+	defer tsServer.Close()
+	tsListener, tserr := tsServer.Listen("tcp", ":80")
+	if tserr != nil {
+		log.Fatal(tserr)
+	}
+	defer tsListener.Close()
+
+	lc, err := tsServer.LocalClient()
+	if err != nil {
+		log.Fatalf("failed to create ts local client: %v", err)
+	}
+
+	// poll for ts auth url
+	go func() {
+		for _ = range time.Tick(1 * time.Second) {
+			status, err := lc.Status(context.Background())
+			if err != nil {
+				log.Println("error polling ts state: %v", err)
+				continue
+			}
+
+			if status.BackendState != "NeedsLogin" && status.BackendState != "NoState" {
+				log.Printf("ts already authenticated")
+				if status.AuthURL == "" {
+					GTConfigLock.Lock()
+					TSAuthURL = status.AuthURL
+					GTConfigLock.Unlock()
+				}
+				return
+			}
+
+			if status.BackendState == "NeedsLogin" {
+				GTConfigLock.Lock()
+				TSAuthURL = status.AuthURL
+				GTConfigLock.Unlock()
+				log.Printf("ts need auth - auth url: %s", status.AuthURL)
+			}
+		}
+	}()
+
+	go func() {
+		http.Serve(tsListener, guppyMux)
+	}()
+
 	if !enableNgrok {
 		log.Println("Serving GuppyFLO locally on port", gtconfig.GuppyFloPort)
 		return http.ListenAndServe(fmt.Sprintf(":%d", gtconfig.GuppyFloPort), guppyMux) //local
 	}
-	
+
 	var oauths []config.HTTPEndpointOption
 	for _, oa := range gtconfig.OAuthConfig {
 		if len(oa.OAuthEmails) > 0 {
@@ -462,7 +515,7 @@ func run(ctx context.Context) error {
 	if len(oauths) == 0 {
 		return errors.New("OAuth is misconfigured.")
 	}
-	
+
 	ln, err := ngrok.Listen(ctx,
 		config.HTTPEndpoint(oauths...,
 		),
@@ -478,28 +531,10 @@ func run(ctx context.Context) error {
 		log.Println("Serving GuppyFLO locally on port", gtconfig.GuppyFloPort)
 		log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", gtconfig.GuppyFloPort), guppyMux)) //local
 	}()
-	
+
 	return http.Serve(ln, guppyMux) // ngrok
 
 }
-
-// func serveReverseProxy(target string, res http.ResponseWriter, req *http.Request) {
-// 	url, _ := url.Parse(target)
-// 	proxy := httputil.NewSingleHostReverseProxy(url)
-// 	req.Header.Add("X-Scheme", "http")
-// 	req.Header.Set("X-Real-IP", "127.0.0.1")
-// 	req.Host = url.Host
-// 	req.Header.Add("Origin", "guppytunnel-client.local")
-// 	proxy.ServeHTTP(res, req)
-// }
-
-// func handleRequestAndRedirectFluidd(res http.ResponseWriter, req *http.Request) {
-// 	serveReverseProxy("http://127.0.0.1:9871", res, req)
-// }
-
-// func handleRequestAndRedirectMainsail(res http.ResponseWriter, req *http.Request) {
-// 	serveReverseProxy("http://127.0.0.1:9872", res, req)
-// }
 
 func reverseProxyHandler(p *httputil.ReverseProxy, url *url.URL) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
@@ -508,7 +543,7 @@ func reverseProxyHandler(p *httputil.ReverseProxy, url *url.URL) func(http.Respo
 		req.Host = url.Host
 		req.Header.Add("Origin", "guppytunnel-client.local")
 		p.ServeHTTP(res, req)
-		
+
 	}
 }
 
@@ -532,22 +567,22 @@ func startPrinterPoller(printers []GTPrinterConfig) {
 			for _ = range time.Tick(3 * time.Second) {
 				// log.Println("getting from ", printerUrl, now)
 				select {
-				case <- quit:
+				case <-quit:
 					log.Println("Stop polling for printer", p.MoonrakerIP, p.MoonrakerPort)
 					return
 				default:
 					resp, err := client.Get(printerUrl)
 					if err != nil {
-						maxFailedAttempt--					
+						maxFailedAttempt--
 
 						if maxFailedAttempt <= 0 {
 							maxFailedAttempt = 3
 
 							// log.Println("failed 3 consective attempts, marking printer as offline")
-							
+
 							c <- Pair[PrinterInfoStatsPair, chan bool]{
 								First: PrinterInfoStatsPair{
-									PrinterId: printerId,
+									PrinterId:   printerId,
 									PrinterInfo: p,
 									Stats: PrinterStats{
 										State: "offline",
@@ -574,17 +609,17 @@ func startPrinterPoller(printers []GTPrinterConfig) {
 
 					c <- Pair[PrinterInfoStatsPair, chan bool]{
 						First: PrinterInfoStatsPair{
-							PrinterId: printerId,
+							PrinterId:   printerId,
 							PrinterInfo: p,
-							Stats: moonrakerResult.Result.Status.Stats,
-							SDCard: moonrakerResult.Result.Status.SDCard,
+							Stats:       moonrakerResult.Result.Status.Stats,
+							SDCard:      moonrakerResult.Result.Status.SDCard,
 						},
 						Second: quit,
 					}
 				}
 			}
 		}(printer, quitSignal)
-	}	
+	}
 }
 
 func startPrinterDataConsumer() {
@@ -598,7 +633,7 @@ func startPrinterDataConsumer() {
 			PrintersMapLock.Unlock()
 		}
 	}()
-	
+
 }
 
 func setupFluiddPrinterRoutes(guppyMux *http.ServeMux, printers []GTPrinterConfig) {
@@ -609,33 +644,32 @@ func setupFluiddPrinterRoutes(guppyMux *http.ServeMux, printers []GTPrinterConfi
 		remote, err := url.Parse(fmt.Sprintf("http://%s:%d", p.MoonrakerIP, p.MoonrakerPort))
 		if err != nil {
 			log.Println("Failed to create URL from printer IP/Port", p.MoonrakerIP, p.MoonrakerPort)
-			continue;
+			continue
 		}
 
-
 		printerId := fmt.Sprintf("printer-%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
-		
+
 		proxy := httputil.NewSingleHostReverseProxy(remote)
 
 		prefix := fmt.Sprintf("/%s/fluidd", printerId)
 		log.Println("Creating printer routes at", remote, prefix)
-		
+
 		gzhandler := gziphandler.GzipHandler(
 			http.StripPrefix(prefix, http.HandlerFunc(reverseProxyHandler(proxy, remote))))
-		
-		guppyMux.Handle(prefix + "/websocket", gzhandler)
-		guppyMux.Handle(prefix + "/printer/", gzhandler)
-		guppyMux.Handle(prefix + "/api/", gzhandler)
-		guppyMux.Handle(prefix + "/access/", gzhandler)
-		guppyMux.Handle(prefix + "/machine/", gzhandler)
-		guppyMux.Handle(prefix + "/server/", gzhandler)
+
+		guppyMux.Handle(prefix+"/websocket", gzhandler)
+		guppyMux.Handle(prefix+"/printer/", gzhandler)
+		guppyMux.Handle(prefix+"/api/", gzhandler)
+		guppyMux.Handle(prefix+"/access/", gzhandler)
+		guppyMux.Handle(prefix+"/machine/", gzhandler)
+		guppyMux.Handle(prefix+"/server/", gzhandler)
 
 		cameras := make(map[string]string)
 		for _, cam := range p.Cameras {
 			cameraId := fmt.Sprintf("camera-%d", hash(fmt.Sprintf("%s:%d", cam.CameraIp, cam.CameraPort)))
 			_, exists := cameras[cameraId]
-			if !exists {				
-				cameras[cameraId] = cameraId				
+			if !exists {
+				cameras[cameraId] = cameraId
 
 				cameraUrl, err2 := url.Parse(fmt.Sprintf("http://%s:%d", cam.CameraIp, cam.CameraPort))
 				if err2 != nil {
@@ -645,7 +679,7 @@ func setupFluiddPrinterRoutes(guppyMux *http.ServeMux, printers []GTPrinterConfi
 				cameraPrefix := fmt.Sprintf("/%s/%s/", printerId, cameraId)
 				cameraProxy := httputil.NewSingleHostReverseProxy(cameraUrl)
 
-				log.Println("Creating camera routes at", cameraUrl, cameraPrefix)				
+				log.Println("Creating camera routes at", cameraUrl, cameraPrefix)
 
 				guppyMux.Handle(cameraPrefix,
 					gziphandler.GzipHandler(http.StripPrefix(cameraPrefix,
@@ -656,6 +690,6 @@ func setupFluiddPrinterRoutes(guppyMux *http.ServeMux, printers []GTPrinterConfi
 		fluidgz := gziphandler.GzipHandler(
 			http.StripPrefix(prefix, http.HandlerFunc(reverseProxyHandler(fluiddProxy, fluiddUrl))))
 
-		guppyMux.Handle(prefix +"/", fluidgz)
+		guppyMux.Handle(prefix+"/", fluidgz)
 	}
 }

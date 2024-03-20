@@ -2,12 +2,20 @@ import { useEffect, useState, useRef } from 'react'
 
 function Printers() {
   const [printers, setPrinters] = useState([])
+  const [settings, setSettings] = useState({})
+
   const [showAddPrinterModal, setShowAddPrinterModal] = useState(false)
 
   const getPrinters = async () => {
     const res = await fetch("/v1/api/printers")
     const data = await res.json()
     setPrinters(data)
+  };
+
+  const getSettings = async () => {
+    const res = await fetch("/v1/api/settings")
+    const data = await res.json()
+    setSettings(data)
   };
 
   const addPrinter = async (formData, numCams) => {
@@ -40,6 +48,7 @@ function Printers() {
   }
 
   useEffect(() => {
+    getSettings()
     getPrinters()
     const timer = setInterval(getPrinters, 5000)
     return () => clearInterval(timer)
@@ -47,39 +56,40 @@ function Printers() {
 
   return (
     <>
+    {!settings.ngrok_auth_token && !settings.ngrok_api_key ? 
+    (<div>
+      <p className='text-lg'>
+        <span className='inline-flex mr-2'>
+        <svg className="w-6 h-6 fill-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z" />
+        </svg>  
+        </span>
+      Ngrok is not configured. Configure it in <a className='text-green-300 hover:underline' href="/settings" target='_blank'>Settings</a>.
+      </p>
+      </div>) : <></>
+    }
+
+{settings.ts_auth_url ?
+    (<div>
+      <p className='text-lg'>
+        <span className='inline-flex mr-2'>
+        <svg className="w-6 h-6 fill-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+        <path d="M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z" />
+        </svg>  
+        </span>
+      Tailscale needs to register this GuppyFLO instance in your tailnet. Use <a className='text-green-300 hover:underline' href={settings.ts_auth_url} target='_blank'>{settings.ts_auth_url}</a> to authenticate.
+      </p>
+      </div>) : <></>
+    }
+
     <AddPrinterModal addPrinter={addPrinter} setShowModal={setShowAddPrinterModal} showModal={showAddPrinterModal} />
-      <PrintersSummary2 printers={printers} />
+      <PrintersSummary printers={printers} />
       <PrinterList printers={printers} />
     </>
   )
 }
 
-function PrintersSummary() {
-  return (
-    <div className='bg-gray-600 w-48 rounded-md font-medium'>
-      <ul className='relative py-3'>
-        <li className='flex flex-row items-center'>
-          <span className="inline-flex justify-center items-center ml-3 mr-1">
-            <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="M17 2H7C5.9 2 5 2.9 5 4V19C5 20.11 5.9 21 7 21V22H9V21H15V22H17V21C18.11 21 19 20.11 19 19V4C19 2.9 18.11 2 17 2M17 19H7V4H17V19M10 15H8V10H10V15Z" />
-            </svg>
-          </span>
-          Printers<span className='absolute right-7'>10</span></li>
-        <li className='flex flex-row items-center'>
-          <span className='rounded-full bg-red-700 uppercase text-sm font-medium px-2 py-0.5 ml-7 mt-2'>Offline</span>
-          <span className='absolute right-7'>2</span></li>
-        <li className='flex flex-row items-center'>
-          <span className='rounded-full bg-green-700 uppercase text-sm font-medium px-2 py-0.5 ml-7 mt-2'>Printing</span>
-          <span className='absolute right-7'>7</span></li>
-        <li className='flex flex-row items-center'>
-          <span className='rounded-full bg-orange-700 uppercase text-sm font-medium px-2 py-0.5 ml-7 mt-2'>Idle</span>
-          <span className='absolute right-7'>1</span></li>
-      </ul>
-    </div>
-  )
-}
-
-function PrintersSummary2({printers}) {
+function PrintersSummary({printers}) {
   const byState = Map.groupBy(printers, (p) => p.stats.state)
   const printing = (byState.get('printing') || []).length
   const offline = (byState.get('offline') || []).length
@@ -109,46 +119,6 @@ function PrintersSummary2({printers}) {
         <span>{standby}</span>
       </div>
     </div>
-  )
-}
-
-function PrinterTable(props) {
-  const printers = props.printers
-  return (
-    <table className='table-auto w-full text-left'>
-      <thead>
-        <tr className='uppercase bg-gray-700'>
-          <th className='px-4 py-2'>Printer</th>
-          <th>Status</th>
-          <th>Actions</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        {printers.map((printer) => (
-          <tr className='hover:bg-gray-600 border-b border-slate-600' key={printer.id}>
-            <td className='px-4 py-2'>{printer.printer.printer_name}</td>
-            <td>
-              <span className='rounded-full bg-green-700 uppercase text-sm font-medium px-2 py-0.5'>{printer.stats.state}</span>
-            </td>
-            <td>
-              <a className='hover:underline hover:text-gray-100' href="#">Stop</a>
-              <span className='ml-3'>
-                <a className='hover:underline hover:text-gray-100' href={printer.id + '/fluidd'}>Fluidd</a>
-              </span>
-            </td>
-            <td>
-              <a href="#" className="hover:text-gray-100">
-                <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                  <path d="M20,4H16.83L15,2H9L7.17,4H4A2,2 0 0,0 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6A2,2 0 0,0 20,4M20,18H4V6H8.05L9.88,4H14.12L15.95,6H20V18M12,7A5,5 0 0,0 7,12A5,5 0 0,0 12,17A5,5 0 0,0 17,12A5,5 0 0,0 12,7M12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15Z" />
-                </svg>
-              </a>
-            </td>
-          </tr>
-
-        ))}
-      </tbody>
-    </table>
   )
 }
 
@@ -302,14 +272,7 @@ function PrinterCard({printer}) {
 
             {printer.printer.printer_name}
           </span>
-{/*           {printer.stats.state === 'paused' ? resumeButton : pauseButton}
-          <button class="bg-gray-500 hover:bg-gray-300 text-white font-bold py-2 px-4 rounded-full"
-          onClick={() => emergencyStop(printer.id)}>
-            <svg className='w-7 h-7 fill-rose-700' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="M11,15H13V17H11V15M11,7H13V13H11V7M12,3A9,9 0 0,0 3,12A9,9 0 0,0 12,21A9,9 0 0,0 21,12A9,9 0 0,0 12,3M12,19C8.14,19 5,15.86 5,12C5,8.14 8.14,5 12,5C15.86,5 19,8.14 19,12C19,15.86 15.86,19 12,19M20.5,20.5C22.66,18.31 24,15.31 24,12C24,8.69 22.66,5.69 20.5,3.5L19.42,4.58C21.32,6.5 22.5,9.11 22.5,12C22.5,14.9 21.32,17.5 19.42,19.42L20.5,20.5M4.58,19.42C2.68,17.5 1.5,14.9 1.5,12C1.5,9.11 2.68,6.5 4.58,4.58L3.5,3.5C1.34,5.69 0,8.69 0,12C0,15.31 1.34,18.31 3.5,20.5L4.58,19.42Z" />
-            </svg>
-          </button>
- */}        </div>
+        </div>
 
         <div className="text-base truncate text-left capitalize">
           <span className='inline-block min-w-28'>{printer.stats.state}</span>
@@ -463,27 +426,6 @@ function PrinterCard({printer}) {
         )}
         </div>) : null}
         </div>
-    </div>
-  )
-}
-
-function Printer() {
-  return (
-    <div className='bg-gray-600 rounded-md'>
-      <div className='flex bg-gray-700 rounded-t-md py-3 font-bold items-center relative'>
-        <p className='ml-5'>K1 Max</p>
-        <span className='rounded-full bg-red-700 uppercase text-sm font-medium px-2 py-0.5 absolute right-7'>Offline</span>
-      </div>
-      <div className='flex justify-center gap-10 mt-3'>
-        <button className='h-8 px-4 text-sm  bg-gray-800 hover:bg-gray-700 rounded'>Emergency Stop</button>
-        <button className='h-8 px-4 text-sm  bg-gray-800 hover:bg-gray-700 rounded'>Open Fluidd</button>
-        <button className='h-8 px-4 text-sm  bg-gray-800 hover:bg-gray-700 rounded'>Show Cameras</button>
-      </div>
-      <div className='flex flex-row flex-wrap justify-evenly gap-5 mt-5'>
-        <div className='h-72 w-96 bg-gray-700'></div>
-        <div className='h-72 w-96 bg-gray-700'></div>
-        <div className='h-72 w-96 bg-gray-700'></div>
-      </div>
     </div>
   )
 }
