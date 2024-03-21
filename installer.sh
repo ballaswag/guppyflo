@@ -42,7 +42,7 @@ if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "x86_64" ]; then
     printf "${green}Installing GuppyFLO ${white}\n"
 
     ASSET="guppyflo_armv6.zip"
-    if [ "$ARCH" = "x86_65" ]; then
+    if [ "$ARCH" = "x86_64" ]; then
 	ASSET="guppyflo_x86_64.zip"
     fi
     
