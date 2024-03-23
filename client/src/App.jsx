@@ -57,44 +57,6 @@ function SideMenu() {
               <span className="ml-2 text-sm tracking-wide truncate">Dashboard</span>
             </Link>
           </li>
-          {/*           <li>
-              <a href="#" className="relative flex flex-row items-center h-11 focus:outline-none hover:bg-gray-700 text-gray-300 hover:text-gray-200 border-l-4 border-transparent hover:border-green-400 pr-6">
-                <span className="inline-flex justify-center items-center ml-4">
-                  <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M19 8C20.66 8 22 9.34 22 11V17H18V21H6V17H2V11C2 9.34 3.34 8 5 8H6V3H18V8H19M8 5V8H16V5H8M16 19V15H8V19H16M18 15H20V11C20 10.45 19.55 10 19 10H5C4.45 10 4 10.45 4 11V15H6V13H18V15M19 11.5C19 12.05 18.55 12.5 18 12.5C17.45 12.5 17 12.05 17 11.5C17 10.95 17.45 10.5 18 10.5C18.55 10.5 19 10.95 19 11.5Z" />
-                  </svg>
-  
-                </span>
-                <span className="ml-2 text-sm tracking-wide truncate">Printers</span>
-              </a>
-              <ul>
-                <li>
-                  <a href="#" className="relative flex flex-row items-center h-11 focus:outline-none hover:bg-gray-700 text-gray-300 hover:text-gray-200 border-l-4 border-transparent hover:border-green-400 pr-6">
-                    <span className="inline-flex justify-center items-center ml-8">
-                      <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        <path d="M17 2H7C5.9 2 5 2.9 5 4V19C5 20.11 5.9 21 7 21V22H9V21H15V22H17V21C18.11 21 19 20.11 19 19V4C19 2.9 18.11 2 17 2M17 19H7V4H17V19M10 15H8V10H10V15Z" />
-                      </svg>
-                    </span>
-                    <span className="ml-2 text-sm tracking-wide truncate">K1 Max</span>
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="relative flex flex-row items-center h-11 focus:outline-none hover:bg-gray-700 text-gray-300 hover:text-gray-200 border-l-4 border-transparent hover:border-green-400 pr-6">
-                    <span className="inline-flex justify-center items-center ml-8">
-                      <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        <path d="M17 2H7C5.9 2 5 2.9 5 4V19C5 20.11 5.9 21 7 21V22H9V21H15V22H17V21C18.11 21 19 20.11 19 19V4C19 2.9 18.11 2 17 2M17 19H7V4H17V19M10 15H8V10H10V15Z" />
-                      </svg>
-                    </span>
-                    <span className="ml-2 text-sm tracking-wide truncate">K1 Carbon</span>
-                  </a>
-                </li>
-              </ul>
-            </li> */}
-          <li className="px-5">
-            <div className="flex flex-row items-center h-8">
-              <div className="text-sm font-light tracking-wide text-gray-300">Settings</div>
-            </div>
-          </li>
           <li>
             <Link to="/settings"
               className="relative flex flex-row items-center h-11 focus:outline-none hover:bg-gray-700 text-gray-300 hover:text-gray-200 border-l-4 border-transparent hover:border-green-400 pr-6">

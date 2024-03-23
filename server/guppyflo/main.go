@@ -305,7 +305,7 @@ func run(ctx context.Context) error {
 			PrintersMapLock.Unlock()
 
 			startPrinterPoller([]GTPrinterConfig{p})
-			setupFluiddPrinterRoutes(guppyMux, []GTPrinterConfig{p})
+			setupPrinterRoutes(guppyMux, []GTPrinterConfig{p})
 
 			GTConfigLock.Lock()
 			gtconfig.Printers = append(gtconfig.Printers, p)
@@ -426,7 +426,6 @@ func run(ctx context.Context) error {
 
 	})
 
-	// if gtconfig.Fluidd != nil {
 	fluiddMux := http.NewServeMux()
 	fluiddMux.Handle("/", gziphandler.GzipHandler(http.FileServer(http.Dir("fluidd"))))
 
@@ -434,18 +433,13 @@ func run(ctx context.Context) error {
 		log.Fatal(http.ListenAndServe(":9871", fluiddMux))
 	}()
 
-	setupFluiddPrinterRoutes(guppyMux, gtconfig.Printers)
-	// }
+	setupPrinterRoutes(guppyMux, gtconfig.Printers)
+	mainsailMux := http.NewServeMux()
+	mainsailMux.Handle("/", gziphandler.GzipHandler(http.FileServer(http.Dir("mainsail"))))
 
-	// if gtconfig.Mainsail != nil {
-	// 	mainsailMux := http.NewServeMux()
-	// 	mainsailMux.Handle("/", gziphandler.GzipHandler(http.FileServer(http.Dir("mainsail"))))
-
-	// 	go func() {
-	// 		log.Fatal(http.ListenAndServe(":9872", mainsailMux))
-	// 	}()
-
-	// }
+	go func() {
+		log.Fatal(http.ListenAndServe(":9872", mainsailMux))
+	}()
 
 	tsServer := new(tsnet.Server)
 	tsServer.Hostname = "guppyflo"
@@ -636,9 +630,40 @@ func startPrinterDataConsumer() {
 
 }
 
-func setupFluiddPrinterRoutes(guppyMux *http.ServeMux, printers []GTPrinterConfig) {
+func setupMoonrakerAndUIRoutes(
+	guppyMux *http.ServeMux,
+	printerId string,
+	moonrakerRemote *url.URL,
+	moonrakerProxy *httputil.ReverseProxy,
+	uiPrefix string,
+	uiRemote *url.URL,
+	uiProxy *httputil.ReverseProxy) {
+
+	prefix := fmt.Sprintf("/%s/%s", printerId, uiPrefix)
+	log.Println("Creating printer routes at", moonrakerRemote, prefix)
+
+	moonrakerGzHandler := gziphandler.GzipHandler(
+		http.StripPrefix(prefix, http.HandlerFunc(reverseProxyHandler(moonrakerProxy, moonrakerRemote))))
+
+	guppyMux.Handle(prefix+"/websocket", moonrakerGzHandler)
+	guppyMux.Handle(prefix+"/printer/", moonrakerGzHandler)
+	guppyMux.Handle(prefix+"/api/", moonrakerGzHandler)
+	guppyMux.Handle(prefix+"/access/", moonrakerGzHandler)
+	guppyMux.Handle(prefix+"/machine/", moonrakerGzHandler)
+	guppyMux.Handle(prefix+"/server/", moonrakerGzHandler)
+
+	uiGzHandler := gziphandler.GzipHandler(
+		http.StripPrefix(prefix, http.HandlerFunc(reverseProxyHandler(uiProxy, uiRemote))))
+
+	guppyMux.Handle(prefix+"/", uiGzHandler)
+}
+
+func setupPrinterRoutes(guppyMux *http.ServeMux, printers []GTPrinterConfig) {
 	fluiddUrl, _ := url.Parse("http://127.0.0.1:9871")
 	fluiddProxy := httputil.NewSingleHostReverseProxy(fluiddUrl)
+
+	mainsailUrl, _ := url.Parse("http://127.0.0.1:9872")
+	mainsailProxy := httputil.NewSingleHostReverseProxy(mainsailUrl)
 
 	for _, p := range printers {
 		remote, err := url.Parse(fmt.Sprintf("http://%s:%d", p.MoonrakerIP, p.MoonrakerPort))
@@ -651,18 +676,8 @@ func setupFluiddPrinterRoutes(guppyMux *http.ServeMux, printers []GTPrinterConfi
 
 		proxy := httputil.NewSingleHostReverseProxy(remote)
 
-		prefix := fmt.Sprintf("/%s/fluidd", printerId)
-		log.Println("Creating printer routes at", remote, prefix)
-
-		gzhandler := gziphandler.GzipHandler(
-			http.StripPrefix(prefix, http.HandlerFunc(reverseProxyHandler(proxy, remote))))
-
-		guppyMux.Handle(prefix+"/websocket", gzhandler)
-		guppyMux.Handle(prefix+"/printer/", gzhandler)
-		guppyMux.Handle(prefix+"/api/", gzhandler)
-		guppyMux.Handle(prefix+"/access/", gzhandler)
-		guppyMux.Handle(prefix+"/machine/", gzhandler)
-		guppyMux.Handle(prefix+"/server/", gzhandler)
+		setupMoonrakerAndUIRoutes(guppyMux, printerId, remote, proxy, "fluidd", fluiddUrl, fluiddProxy)
+		setupMoonrakerAndUIRoutes(guppyMux, printerId, remote, proxy, "mainsail", mainsailUrl, mainsailProxy)
 
 		cameras := make(map[string]string)
 		for _, cam := range p.Cameras {
@@ -686,10 +701,5 @@ func setupFluiddPrinterRoutes(guppyMux *http.ServeMux, printers []GTPrinterConfi
 						http.HandlerFunc(reverseProxyHandler(cameraProxy, cameraUrl)))))
 			}
 		}
-
-		fluidgz := gziphandler.GzipHandler(
-			http.StripPrefix(prefix, http.HandlerFunc(reverseProxyHandler(fluiddProxy, fluiddUrl))))
-
-		guppyMux.Handle(prefix+"/", fluidgz)
 	}
 }

@@ -125,7 +125,7 @@ function PrintersSummary({printers}) {
   )
 }
 
-function PrinterCamera({src}) {
+function CameraGo2RTC({src}) {
   const parent = useRef();
   
   useEffect(() => {
@@ -140,6 +140,24 @@ function PrinterCamera({src}) {
     <div ref={parent} />
   )
 }
+
+function CameraMpjegStream({src}) {
+  const imgRef = useRef()
+
+  useEffect(() => {
+    imgRef.current.src = src
+     let localRef = imgRef.current;
+
+    return () => {
+       localRef.src = ''
+    }
+  }, [src, imgRef])
+
+  return (
+    <img ref={imgRef} />
+  )
+}
+
 
 function PrinterList({printers}) {
   return (
@@ -410,6 +428,13 @@ function PrinterCard({printer}) {
           <span>Fluidd</span>
         </a>
 
+        <a className='hover:text-gray-50 inline-flex items-center space-x-1 bg-gray-500 hover:bg-gray-300 px-4 py-1 rounded-full' href={printer.id + '/mainsail'} target='_blank'>
+          <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M19 8C20.66 8 22 9.34 22 11V17H18V21H6V17H2V11C2 9.34 3.34 8 5 8H6V3H18V8H19M8 5V8H16V5H8M16 19V15H8V19H16M18 15H20V11C20 10.45 19.55 10 19 10H5C4.45 10 4 10.45 4 11V15H6V13H18V15M19 11.5C19 12.05 18.55 12.5 18 12.5C17.45 12.5 17 12.05 17 11.5C17 10.95 17.45 10.5 18 10.5C18.55 10.5 19 10.95 19 11.5Z" />
+          </svg>
+          <span>Mainsail</span>
+        </a>
+
         <button className="min-w-28 bg-gray-500 hover:bg-gray-300 hover:text-gray-50 inline-flex justify-center items-center space-x-1 py-1 px-4 rounded-full"
           onClick={toggleCameras} disabled={printer.stats.state === 'offline'}>
           <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -424,10 +449,19 @@ function PrinterCard({printer}) {
       <div>
       {printer.stats.state !== 'offline' && showCameras ? 
       (<div className='w-full flex flex-row flex-wrap justify-start mt-5 gap-2'>
-      {printer.printer.cameras.map((c, i) => 
-        ( <PrinterCamera key={printer.id + 'cam' + i} src={printer.id + '/' + c.id + c.path} />)
+            {printer.printer.cameras.map((c, i) => {
+              switch (c.type) {
+                case 'go2rtc':
+                  return (<CameraGo2RTC key={printer.id + 'cam' + i} src={printer.id + '/' + c.id + c.path} />)
+                case 'mjpeg-stream':
+                  return (<CameraMpjegStream key={printer.id + 'cam' + i} src={printer.id + '/' + c.id + c.path} />)
+                default:
+                  console.log("unknonw camera service")
+                  return (<></>)
+              }
+            }
         )}
-        </div>) : null}
+        </div>) : <div />}
         </div>
     </div>
   )
@@ -515,7 +549,8 @@ function AddPrinterModal({addPrinter, setShowModal, showModal}) {
                         <label className="block">
                           Camera Service<br />
                           <select name={'cameratype' + i} className="p-1 rounded block w-full text-black">
-                            <option>go2rtc</option>
+                          <option>go2rtc</option>
+                          <option>mjpeg-stream</option>
                           </select>
                         </label>
                       </div>

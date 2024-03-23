@@ -12,6 +12,7 @@ before:
   hooks:
     - sh -c "cd ../client && npm install --force && npm run build && mv dist ../server/www"
     - sh -c "curl -s -L https://github.com/ballaswag/fluidd/releases/download/v1.28.2-swag/fluidd.zip -o fluidd.zip && mkdir fluidd && unzip fluidd.zip -d fluidd"
+    - sh -c "curl -s -L https://github.com/ballaswag/mainsail/releases/download/v2.10.3-swag/mainsail.zip -o mainsail.zip && mkdir mainsail && unzip mainsail.zip -d mainsail"
     - sh -c "cp -r ../services ."
     # You may remove this if you don't use go modules.
     - go mod tidy
@@ -42,6 +43,7 @@ archives:
     files:
       - www
       - fluidd
+      - mainsail
       - services
 
     # this name template makes the OS and Arch compatible with the results of `uname`.
