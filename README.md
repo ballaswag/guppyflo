@@ -26,18 +26,20 @@ wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh
 ```
 ## Features
 1. Global view of all your Klipper/Moonraker printers.
-2. Fluidd opens directly to printer of desired printer (no need to mock with switching printers in the Fluidd UI).
+2. Fluidd/Mainsail opens directly to desired printer (no need to mock with switching printers in the UI).
 3. Unlimited `go2rtc` WebRTC cameras.
-4. Integrated Tailscale.
-5. Free and secure remote access with `ngrok` (paid `ngrok` subscription availiable via their terms).
-6. Unlimited local access.
-7. Multiplatform support (runs in Linux/Windows x86_64, buildroot mipsle, PI ARMv6).
-8. MobileRaker via `tailscale`
+4. Mpjeg-streamer webcams over `tailscale`. Don't use `ngrok` for these streams, they'll use all your free `ngrok` bandwidth.
+5. Integrated `tailscale`.
+6. Free and secure remote access with `ngrok` (paid `ngrok` subscription availiable via their terms).
+7. Unlimited local access.
+8. Multiplatform support (runs on Linux/Windows x86_64, buildroot mipsle, PI ARMv6).
+9. Mobileraker via `tailscale`.
 
 ## Roadmap
-1. More camera service support (e.g. ustreamer/camera-streamer)
-2. More printer metrics at a glance (e.g. heater states)
-3. Websocket instead of polling between server/client.
+1. More camera service support (e.g. ustreamer/camera-streamer).
+2. Automatic camera detection and configuration.
+3. More printer metrics at a glance (e.g. heater states)
+4. Websocket instead of polling between server/client.
 
 ## Screenshot
 <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo.png" alt="GuppyFLO UI" width="700"/>
@@ -52,7 +54,7 @@ GuppyFlo support secure remote access via Tailscale. You can sign up a free acco
 1. Once you have a `tailscale` account, open browser to `http://<guppyflo-host-ip>:9873`.
 2. Click the `tailscale` authentication link to add GuppyFLO as a `tailscale` device.
 3. Done! Now you can access GuppyFLO and all your guppy managed printers via your `tailnet`.
-4. On any device running `tailscale`, open your browser to [http://guppyflo](http://guppyflo).
+4. On any device running `tailscale`, open your browser to [http://guppyflo](http://guppyflo) (Need [MagicDNS](https://login.tailscale.com/admin/dns) for shortnames).
 
 ### Remote Access via ngrok
 GuppyFLO supports secure and authenticated remote access using ngrok. You can sign up for a free account [here](https://dashboard.ngrok.com/signup).
@@ -67,11 +69,11 @@ GuppyFLO supports secure and authenticated remote access using ngrok. You can si
 
 <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo-settings.png" alt="GuppyFLO Settings" width="700"/>
 
-### MobileRaker via Tailscale
-If you enable `tailscale`, you can add all your guppy managed printer in MobileRaker.
+### Mobileraker via Tailscale
+If you enable `tailscale`, you can add all your guppy managed printer in Mobileraker.
 
 1. In the GuppyFLO dashboard, find the printer link by pointing at the `Fluidd` button, e.g. `http://guppyflo/printer-390877414/fluidd`
-2. In MobileRaker, click `Advanced`
+2. In Mobileraker, click `Advanced`
 3. `Printer - Address` is `guppyflo/printer-390877414/fluidd`
 4. `Websocket - Address` is `guppyflo/printer-390877414/fluidd/websocket`
 5. Click `Test Connection`, `Continue`
@@ -91,11 +93,12 @@ GuppyFLO allows unlimited WebRTC camera access only limited by your ISP bandwidt
 <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo-cameras.png" alt="GuppyFLO Printer Camera" width="400"/>
 
 ## Disclaimers
-* GuppyFLO is not associate with `ngrok`. It uses it for remote tunneling because it offers a free, secure, and programmable solution.
-* GuppyFLO uses a fork of fluidd that enables path base access to moonraker websocket. The changes are tracked in this [fork](https://github.com/ballaswag/fluidd)
+* GuppyFLO is not associate with `ngrok`/`tailscale`. It uses these for remote access because they offer a free, secure, and programmable solution.
+* GuppyFLO uses a fork of fluidd/mainsail that enable path base access to moonraker websocket. The changes are tracked in this [fluid](https://github.com/ballaswag/fluidd) and [mainsail](https://github.com/ballaswag/mainsail) fork.
 
 ## Credit
 [Moonraker](https://github.com/Arksine/moonraker)  
 [Fluidd](https://github.com/fluidd-core/fluidd)  
+[Mainsail](https://github.com/mainsail-crew/mainsail)  
 [go2rtc](https://github.com/AlexxIT/go2rtc)  
 [ngrok-go](https://github.com/ngrok/ngrok-go)  
