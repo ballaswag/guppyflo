@@ -48,11 +48,23 @@ type VirtualSDCard struct {
 	FileSize     int     `json:"file_size"`
 }
 
+type ExtruderStats struct {
+	Temperature float64 `json:"temperature"`
+	Target      float64 `json:"target"`
+}
+
+type HeaterBedStats struct {
+	Temperature float64 `json:"temperature"`
+	Target      float64 `json:"target"`
+}
+
 type MoonrakerPrinterStats struct {
 	Result struct {
 		Status struct {
-			Stats  PrinterStats  `json:"print_stats"`
-			SDCard VirtualSDCard `json:"virtual_sdcard"`
+			Stats     PrinterStats   `json:"print_stats"`
+			SDCard    VirtualSDCard  `json:"virtual_sdcard"`
+			Extruder  ExtruderStats  `json:"extruder,omitempty"`
+			HeaterBed HeaterBedStats `json:"heater_bed,omitempty"`
 		}
 		EventTime float64 `json:"eventtime"`
 	} `json:"result"`
@@ -63,6 +75,8 @@ type PrinterInfoStatsPair struct {
 	PrinterInfo GTPrinterConfig `json:"printer"`
 	Stats       PrinterStats    `json:"stats"`
 	SDCard      VirtualSDCard   `json:"virtual_sdcard"`
+	Extruder    ExtruderStats   `json:"extruder,omitempty"`
+	HeaterBed   HeaterBedStats  `json:"heater_bed,omitempty"`
 }
 
 type GTPrinterCamerasConfig struct {
@@ -556,7 +570,7 @@ func startPrinterPoller(printers []GTPrinterConfig) {
 			printerId := fmt.Sprintf("printer-%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
 			// log.PrintLn("Starting fetcher for printer at ", p.MoonrakerIP, p.MoonrakerPort)
 			maxFailedAttempt := 3
-			printerUrl := fmt.Sprintf("http://%v:%v/printer/objects/query?print_stats&virtual_sdcard",
+			printerUrl := fmt.Sprintf("http://%v:%v/printer/objects/query?print_stats&virtual_sdcard&extruder&heater_bed",
 				p.MoonrakerIP, p.MoonrakerPort)
 			for _ = range time.Tick(3 * time.Second) {
 				// log.Println("getting from ", printerUrl, now)
@@ -607,6 +621,8 @@ func startPrinterPoller(printers []GTPrinterConfig) {
 							PrinterInfo: p,
 							Stats:       moonrakerResult.Result.Status.Stats,
 							SDCard:      moonrakerResult.Result.Status.SDCard,
+							Extruder:    moonrakerResult.Result.Status.Extruder,
+							HeaterBed:   moonrakerResult.Result.Status.HeaterBed,
 						},
 						Second: quit,
 					}

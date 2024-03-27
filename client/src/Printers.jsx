@@ -1,4 +1,11 @@
 import { useEffect, useState, useRef } from 'react'
+import Button from './components/Button.jsx'
+import WarningIcon from './assets/images/warning.svg?react'
+import PrinterIcon from './assets/images/printer.svg?react'
+import PauseIcon from './assets/images/pause.svg?react'
+import ResumeIcon from './assets/images/resume.svg?react'
+import StopIcon from './assets/images/stop.svg?react'
+import CameraIcon from './assets/images/camera.svg?react'
 
 function Printers() {
   const [printers, setPrinters] = useState([])
@@ -60,9 +67,7 @@ function Printers() {
     (<div>
       <p className='text-lg'>
         <span className='inline-flex mr-2'>
-        <svg className="w-6 h-6 fill-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <path d="M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z" />
-        </svg>  
+        <WarningIcon className='w-6 h-6 fill-yellow-500' />
         </span>
       Ngrok is not configured. Configure it in <a className='text-green-300 hover:underline' href="/settings" target='_blank'>Settings</a>.
       </p>
@@ -73,9 +78,7 @@ function Printers() {
     (<div>
       <p className='text-lg'>
         <span className='inline-flex mr-2'>
-        <svg className="w-6 h-6 fill-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <path d="M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z" />
-        </svg>  
+        <WarningIcon className='w-6 h-6 fill-yellow-500' />
         </span>
       Tailscale needs to register this GuppyFLO instance in your tailnet. Use <a className='text-green-300 hover:underline' href={settings.ts_auth_url} target='_blank'>{settings.ts_auth_url}</a> to authenticate.
       </p>
@@ -99,27 +102,22 @@ function PrintersSummary({printers}) {
   const standby = printers.length - printing - offline
 
   return (
-    <div className='flex flow-row flex-wrap justify-evenly bg-gray-600 rounded-md font-medium py-2'>
-      <div className='flex items-center space-x-4'>
-        <span className="inline-flex justify-center items-center ml-3 mr-1">
-          <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-            <path d="M17 2H7C5.9 2 5 2.9 5 4V19C5 20.11 5.9 21 7 21V22H9V21H15V22H17V21C18.11 21 19 20.11 19 19V4C19 2.9 18.11 2 17 2M17 19H7V4H17V19M10 15H8V10H10V15Z" />
-          </svg>
+    <div className='flex flex-wrap justify-evenly bg-gray-600 rounded-t-md font-medium py-2'>
+      <div className='space-x-4 flex items-center'>
+        <span className="inline-flex rounded-full bg-gray-500 uppercase text-sm font-medium px-2 py-0.5 mt-2">
+        <PrinterIcon className='w-5 h-5 fill-current mr-2' />Total ({printers.length})
         </span>
-        Printers<span>{printers.length}</span>
+        
       </div>
 
-      <div className='space-x-4'>
-        <span className='rounded-full bg-rose-600 uppercase text-sm font-medium px-2 py-0.5 ml-7 mt-2'>Offline</span>
-        <span>{offline}</span>
+      <div className='space-x-4 flex items-center'>
+        <span className='rounded-full bg-rose-600 uppercase text-sm font-medium px-2 py-0.5 mt-2'>Offline ({offline})</span>
       </div>
-      <div className='space-x-4'>
-        <span className='rounded-full bg-green-500 uppercase text-sm font-medium px-2 py-0.5 ml-7 mt-2'>Printing</span>
-        <span>{printing}</span>
+      <div className='space-x-4 flex items-center'>
+        <span className='rounded-full bg-green-500 uppercase text-sm font-medium px-2 py-0.5 mt-2'>Printing ({printing})</span>
       </div>
-      <div className='space-x-4'>
-        <span className='rounded-full bg-orange-500 uppercase text-sm font-medium px-2 py-0.5 ml-7 mt-2'>Standby</span>
-        <span>{standby}</span>
+      <div className='space-x-4 flex items-center'>
+        <span className='rounded-full bg-orange-500 uppercase text-sm font-medium px-2 py-0.5 mt-2'>Standby ({standby})</span>
       </div>
     </div>
   )
@@ -161,7 +159,7 @@ function CameraMpjegStream({src}) {
 
 function PrinterList({printers}) {
   return (
-    <div className='divide-y divide-gray-500  bg-gray-600 rounded'>
+    <div className='divide-y divide-gray-500  bg-gray-600 rounded-b'>
     {printers.map((printer) => <PrinterCard key={printer.id} printer={printer} />) }
     </div>
   )
@@ -231,70 +229,35 @@ function PrinterCard({printer}) {
   const eta = moment.duration(filePrintEta(printer), 'seconds')
 
   const pauseButton = (
-    <button className="min-w-28 bg-gray-500 hover:bg-gray-300 hover:text-gray-50 inline-flex justify-center items-center space-x-1 py-1 px-4 rounded-full"
-      onClick={() => printAction(printer.id, 'pause')} disabled={pauseLoading}>
-      {pauseLoading ?
-        (
-          <svg className="w-6 h-6 text-gray-300 animate-spin" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M32 3C35.8083 3 39.5794 3.75011 43.0978 5.20749C46.6163 6.66488 49.8132 8.80101 52.5061 11.4939C55.199 14.1868 57.3351 17.3837 58.7925 20.9022C60.2499 24.4206 61 28.1917 61 32C61 35.8083 60.2499 39.5794 58.7925 43.0978C57.3351 46.6163 55.199 49.8132 52.5061 52.5061C49.8132 55.199 46.6163 57.3351 43.0978 58.7925C39.5794 60.2499 35.8083 61 32 61C28.1917 61 24.4206 60.2499 20.9022 58.7925C17.3837 57.3351 14.1868 55.199 11.4939 52.5061C8.801 49.8132 6.66487 46.6163 5.20749 43.0978C3.7501 39.5794 3 35.8083 3 32C3 28.1917 3.75011 24.4206 5.2075 20.9022C6.66489 17.3837 8.80101 14.1868 11.4939 11.4939C14.1868 8.80099 17.3838 6.66487 20.9022 5.20749C24.4206 3.7501 28.1917 3 32 3L32 3Z"
-              stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"></path>
-            <path
-              d="M32 3C36.5778 3 41.0906 4.08374 45.1692 6.16256C49.2477 8.24138 52.7762 11.2562 55.466 14.9605C58.1558 18.6647 59.9304 22.9531 60.6448 27.4748C61.3591 31.9965 60.9928 36.6232 59.5759 40.9762"
-              stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-            </path>
-          </svg>
-        )
-        : (
-          <>
-            <svg className='w-5 h-5 fill-orange-400' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="M13,16V8H15V16H13M9,16V8H11V16H9M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22A10,10 0 0,1 2,12A10,10 0 0,1 12,2M12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4Z" />
-            </svg>
-            <span>Pause</span>
-          </>
-        )
-      }
-    </button>
+    <Button
+      onClick={() => printAction(printer.id, 'pause')}
+      disabled={pauseLoading}
+      loading={pauseLoading}>
+      <PauseIcon className='w-5 h-5 fill-orange-400' />
+      <span>Pause</span>
+    </Button>
   )
 
   const resumeButton = (
-    <button className="min-w-28 bg-gray-500 hover:bg-gray-300 hover:text-gray-50 inline-flex justify-center items-center space-x-1 py-1 px-4 rounded-full"
-      onClick={() => printAction(printer.id, 'resume')} disabled={resumeLoading}>
-      {resumeLoading ?
-        (
-          <svg className="w-6 h-6 text-gray-300 animate-spin" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M32 3C35.8083 3 39.5794 3.75011 43.0978 5.20749C46.6163 6.66488 49.8132 8.80101 52.5061 11.4939C55.199 14.1868 57.3351 17.3837 58.7925 20.9022C60.2499 24.4206 61 28.1917 61 32C61 35.8083 60.2499 39.5794 58.7925 43.0978C57.3351 46.6163 55.199 49.8132 52.5061 52.5061C49.8132 55.199 46.6163 57.3351 43.0978 58.7925C39.5794 60.2499 35.8083 61 32 61C28.1917 61 24.4206 60.2499 20.9022 58.7925C17.3837 57.3351 14.1868 55.199 11.4939 52.5061C8.801 49.8132 6.66487 46.6163 5.20749 43.0978C3.7501 39.5794 3 35.8083 3 32C3 28.1917 3.75011 24.4206 5.2075 20.9022C6.66489 17.3837 8.80101 14.1868 11.4939 11.4939C14.1868 8.80099 17.3838 6.66487 20.9022 5.20749C24.4206 3.7501 28.1917 3 32 3L32 3Z"
-              stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"></path>
-            <path
-              d="M32 3C36.5778 3 41.0906 4.08374 45.1692 6.16256C49.2477 8.24138 52.7762 11.2562 55.466 14.9605C58.1558 18.6647 59.9304 22.9531 60.6448 27.4748C61.3591 31.9965 60.9928 36.6232 59.5759 40.9762"
-              stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-            </path>
-          </svg>
-        )
-        : (
-          <>
-            <svg className='w-5 h-5 fill-green-500' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="M12,20C7.59,20 4,16.41 4,12C4,7.59 7.59,4 12,4C16.41,4 20,7.59 20,12C20,16.41 16.41,20 12,20M12,2A10,10 0 0,0 2,12A10,10 0 0,0 12,22A10,10 0 0,0 22,12A10,10 0 0,0 12,2M10,16.5L16,12L10,7.5V16.5Z" />
-            </svg>
-            <span>Resume</span>
-          </>
-        )
-      }
-    </button>
+    <Button
+      onClick={() => printAction(printer.id, 'resume')}
+      disabled={resumeLoading}
+      loading={resumeLoading}>
+      <ResumeIcon className='w-5 h-5 fill-green-500' />
+      <span>Resume</span>
+    </Button>
   )
 
   const isPrinting = ['printing', 'paused'].includes(printer.stats.state)
   const status = isPrinting
     ? (
       <>
-        <div className="text-lg font-semibold truncate text-left min-w-52 space-x-3">
+        <div className="text-lg font-semibold truncate text-left mb-1">
           <span className='inline-block min-w-52'>
-
-            {printer.printer.printer_name}
+            {printer.printer.printer_name} - {printer.virtual_sdcard.file_path.substring(printer.virtual_sdcard.file_path.lastIndexOf('/') + 1)}
           </span>
         </div>
-
+        <div className='space-y-1'>
         <div className="text-base truncate text-left capitalize">
           <span className='inline-block min-w-28'>{printer.stats.state}</span>
           <span className='text-gray-400'>{(printer.virtual_sdcard.progress * 100).toFixed(2) + '%'}</span>
@@ -303,6 +266,16 @@ function PrinterCard({printer}) {
           <span className='inline-block min-w-28'>File</span>
           <span className='text-gray-400'>{eta.hours() + eta.days() * 24}h {eta.minutes()}m {eta.seconds()}s</span>
         </div>
+
+        <div className="text-base truncate text-left">
+          <span className='inline-block min-w-28'>Extruder</span>
+          <span className='text-gray-400'>{printer.extruder.temperature} ({printer.extruder.target}) &deg;C</span>
+        </div>
+        <div className="text-base truncate text-left">
+          <span className='inline-block min-w-28'>Heater Bed</span>
+          <span className='text-gray-400'>{printer.heater_bed.temperature} ({printer.heater_bed.target}) &deg;C</span>
+        </div>
+        </div>        
       </>
     )
     : (
@@ -320,37 +293,20 @@ function PrinterCard({printer}) {
 
   const printControls = isPrinting ? (<>
     {printer.stats.state === 'paused' ? resumeButton : pauseButton}
-    <button className="min-w-28 bg-gray-500 hover:bg-gray-300 hover:text-gray-50 inline-flex justify-center items-center space-x-2 py-1 px-4 rounded-full"
-    onClick={() => emergencyStop(printer.id)} disabled={estopLoading}>
-      {estopLoading ?
-        (
-          <svg className="w-6 h-6 text-gray-300 animate-spin" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path
-              d="M32 3C35.8083 3 39.5794 3.75011 43.0978 5.20749C46.6163 6.66488 49.8132 8.80101 52.5061 11.4939C55.199 14.1868 57.3351 17.3837 58.7925 20.9022C60.2499 24.4206 61 28.1917 61 32C61 35.8083 60.2499 39.5794 58.7925 43.0978C57.3351 46.6163 55.199 49.8132 52.5061 52.5061C49.8132 55.199 46.6163 57.3351 43.0978 58.7925C39.5794 60.2499 35.8083 61 32 61C28.1917 61 24.4206 60.2499 20.9022 58.7925C17.3837 57.3351 14.1868 55.199 11.4939 52.5061C8.801 49.8132 6.66487 46.6163 5.20749 43.0978C3.7501 39.5794 3 35.8083 3 32C3 28.1917 3.75011 24.4206 5.2075 20.9022C6.66489 17.3837 8.80101 14.1868 11.4939 11.4939C14.1868 8.80099 17.3838 6.66487 20.9022 5.20749C24.4206 3.7501 28.1917 3 32 3L32 3Z"
-              stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"></path>
-            <path
-              d="M32 3C36.5778 3 41.0906 4.08374 45.1692 6.16256C49.2477 8.24138 52.7762 11.2562 55.466 14.9605C58.1558 18.6647 59.9304 22.9531 60.6448 27.4748C61.3591 31.9965 60.9928 36.6232 59.5759 40.9762"
-              stroke="currentColor" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" className="text-gray-700">
-            </path>
-          </svg>
-        )
-        : (
-          <>
-            <svg className='w-6 h-6 fill-rose-600' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-              <path d="M11,15H13V17H11V15M11,7H13V13H11V7M12,3A9,9 0 0,0 3,12A9,9 0 0,0 12,21A9,9 0 0,0 21,12A9,9 0 0,0 12,3M12,19C8.14,19 5,15.86 5,12C5,8.14 8.14,5 12,5C15.86,5 19,8.14 19,12C19,15.86 15.86,19 12,19M20.5,20.5C22.66,18.31 24,15.31 24,12C24,8.69 22.66,5.69 20.5,3.5L19.42,4.58C21.32,6.5 22.5,9.11 22.5,12C22.5,14.9 21.32,17.5 19.42,19.42L20.5,20.5M4.58,19.42C2.68,17.5 1.5,14.9 1.5,12C1.5,9.11 2.68,6.5 4.58,4.58L3.5,3.5C1.34,5.69 0,8.69 0,12C0,15.31 1.34,18.31 3.5,20.5L4.58,19.42Z" />
-            </svg>
-            <span>Stop</span>
-          </>
-        )
-      }
 
-    </button>
+    <Button
+      onClick={() => emergencyStop(printer.id)}
+      disabled={estopLoading}
+      loading={estopLoading}>
+      <StopIcon className='w-6 h-6 fill-rose-600' />
+      <span>Stop</span>
+    </Button>    
   </>
   )
-  : (<></>)
+  : null
 
   return (
-    <div className="flex flex-wrap items-center px-5 py-5">
+    <div className="flex flex-wrap items-center px-5 py-5 justify-center relative">
     <div className="flex-shrink-0">
     {isPrinting ? (
       <svg className='w-12 h-12 fill-green-500' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -373,12 +329,12 @@ function PrinterCard({printer}) {
       <div className="flex-grow ml-3">
         {status}
       </div>
-     <div className='inline-flex'>
+     <div className='absolute right-4 top-4'>
         {!confirmDelete ? (
-          <button className="bg-rose-600 rounded-full p-1 inline-flex items-center justify-center hover:bg-rose-500"
+          <button className="rounded-full bg-gray-500 p-0.5 inline-flex items-center justify-center hover:bg-gray-300 hover:text-gray-50"
             onClick={() => setConfirmDelete(true)}>
-            <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" aria-hidden="true">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+            <svg className='w-6 h-6 fill-current' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" />
             </svg>
           </button>
         )
@@ -420,28 +376,23 @@ function PrinterCard({printer}) {
           )
         }
       </div>
-      <div className='w-full mt-4 space-x-6'>
-        <a className='hover:text-gray-50 inline-flex items-center space-x-1 bg-gray-500 hover:bg-gray-300 px-4 py-1 rounded-full' href={printer.id + '/fluidd'} target='_blank'>
-          <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-            <path d="M19 8C20.66 8 22 9.34 22 11V17H18V21H6V17H2V11C2 9.34 3.34 8 5 8H6V3H18V8H19M8 5V8H16V5H8M16 19V15H8V19H16M18 15H20V11C20 10.45 19.55 10 19 10H5C4.45 10 4 10.45 4 11V15H6V13H18V15M19 11.5C19 12.05 18.55 12.5 18 12.5C17.45 12.5 17 12.05 17 11.5C17 10.95 17.45 10.5 18 10.5C18.55 10.5 19 10.95 19 11.5Z" />
-          </svg>
+      <div className='w-3/4 flex flex-wrap justify-between mt-5 gap-y-3 md:w-full md:block md:w-full md:space-x-4'>
+<Button
+          onClick={() => window.open(printer.id + '/fluidd', '_blank', 'noopener,noreferrer')}>
+          <PrinterIcon className='w-5 h-5 fill-current' />
           <span>Fluidd</span>
-        </a>
-
-        <a className='hover:text-gray-50 inline-flex items-center space-x-1 bg-gray-500 hover:bg-gray-300 px-4 py-1 rounded-full' href={printer.id + '/mainsail'} target='_blank'>
-          <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-            <path d="M19 8C20.66 8 22 9.34 22 11V17H18V21H6V17H2V11C2 9.34 3.34 8 5 8H6V3H18V8H19M8 5V8H16V5H8M16 19V15H8V19H16M18 15H20V11C20 10.45 19.55 10 19 10H5C4.45 10 4 10.45 4 11V15H6V13H18V15M19 11.5C19 12.05 18.55 12.5 18 12.5C17.45 12.5 17 12.05 17 11.5C17 10.95 17.45 10.5 18 10.5C18.55 10.5 19 10.95 19 11.5Z" />
-          </svg>
+        </Button>
+        <Button
+          onClick={() => window.open(printer.id + '/mainsail', '_blank', 'noopener,noreferrer')}>
+          <PrinterIcon className='w-5 h-5 fill-current' />
           <span>Mainsail</span>
-        </a>
+        </Button>
 
-        <button className="min-w-28 bg-gray-500 hover:bg-gray-300 hover:text-gray-50 inline-flex justify-center items-center space-x-1 py-1 px-4 rounded-full"
-          onClick={toggleCameras} disabled={printer.stats.state === 'offline'}>
-          <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-            <path d="M20,4H16.83L15,2H9L7.17,4H4A2,2 0 0,0 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6A2,2 0 0,0 20,4M20,18H4V6H8.05L9.88,4H14.12L15.95,6H20V18M12,7A5,5 0 0,0 7,12A5,5 0 0,0 12,17A5,5 0 0,0 17,12A5,5 0 0,0 12,7M12,15A3,3 0 0,1 9,12A3,3 0 0,1 12,9A3,3 0 0,1 15,12A3,3 0 0,1 12,15Z" />
-          </svg>
+        <Button onClick={toggleCameras} disabled={printer.stats.state === 'offline'}>
+          <CameraIcon className='w-5 h-5 fill-current' />
           <span>Cameras</span>
-        </button>        
+
+        </Button>
 
         {printControls}
 
@@ -483,14 +434,14 @@ function AddPrinterModal({addPrinter, setShowModal, showModal}) {
 
   return (
     <>
-        <a href="#" className="hover:text-gray-100 inline-flex items-center space-x-1 bg-gray-500 px-4 py-1 rounded-full"
-        onClick={() => setShowModal(true)}>
-        <svg className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <path d="M19 8C20.66 8 22 9.34 22 11V17H18V21H6V17H2V11C2 9.34 3.34 8 5 8H6V3H18V8H19M8 5V8H16V5H8M16 19V15H8V19H16M18 15H20V11C20 10.45 19.55 10 19 10H5C4.45 10 4 10.45 4 11V15H6V13H18V15M19 11.5C19 12.05 18.55 12.5 18 12.5C17.45 12.5 17 12.05 17 11.5C17 10.95 17.45 10.5 18 10.5C18.55 10.5 19 10.95 19 11.5Z" />
-        </svg>
-          <span>Add Printer</span>
-        </a>
-      {showModal ? (
+    <div className='flex justify-end mb-3'>
+      <Button onClick={() => setShowModal(true)} >
+        <PrinterIcon className='w-5 h-5 fill-current' />
+        <span>Add Printer</span>
+      </Button>
+      </div>
+      {
+    showModal?(
         <>
           <div className="bg-gray-900 bg-opacity-80 flex justify-center items-center fixed top-0 start-0 inset-0 z-50 outline-none focus:outline-non">
               <div className="w-96 border-0 rounded-lg shadow-lg relative flex flex-col bg-gray-500 text-gray-100 outline-none focus:outline-none">
@@ -587,6 +538,5 @@ function AddPrinterModal({addPrinter, setShowModal, showModal}) {
     </>
   )
 }
-
 
 export default Printers
