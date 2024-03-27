@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import WarningIcon from './assets/images/warning.svg?react'
 
 function Settings() {
   const [settings, setSettings] = useState({})
@@ -36,15 +37,13 @@ function Settings() {
 
 
   return (
-    <>
+    <div className='px-10 space-y-10'>
     {!settings.ngrok_auth_token && !settings.ngrok_api_key ? 
     (<div>
       <p className='text-lg'>
-        <span className='inline-flex mr-2'>
-        <svg className="w-6 h-6 fill-yellow-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-        <path d="M13 14H11V9H13M13 18H11V16H13M1 21H23L12 2L1 21Z" />
-        </svg>  
-        </span>
+      <span className='inline-flex mr-2'>
+      <WarningIcon className="w-6 h-6 fill-yellow-500" />
+      </span>
       Ngrok is not configured. <a className='text-green-300 hover:underline' href="https://dashboard.ngrok.com/signup" target='_blank'>Sign up</a> for a free Ngrok account and add the Ngrok auth token to enable remote tunneling. 
       Without Ngrok, GuppyFLO only works within your local network.
       </p>
@@ -99,7 +98,7 @@ function Settings() {
 
         <button type="submit" className="text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800">Save</button>
       </form>
-    </>
+    </div>
   )
 }
 
