@@ -156,6 +156,114 @@ function CameraMpjegStream({src}) {
   )
 }
 
+function PrinterEditor({printer, setEditPrinter, updatePrinter}) {
+  const [cameras, setCameras] = useState(printer.printer.cameras || [])
+  const addCamera = () => {
+    setCameras([...cameras, {
+      path: '',
+      type: 'go2rtc'
+    }])
+  }
+
+  const deleteCamera = (camIdx) => {
+    setCameras(cameras.filter((cam, idx) => idx != camIdx))
+  }
+
+  return (
+    <div className="bg-gray-900 bg-opacity-80 flex justify-center items-center fixed top-0 start-0 inset-0 z-50 outline-none focus:outline-non">
+      <div className="w-96 border-0 rounded-lg shadow-lg relative flex flex-col bg-gray-500 text-gray-100 outline-none focus:outline-none">
+        <form action={(formData) => updatePrinter(formData, cameras.length)} className="bg-gray-400 shadow-md rounded px-8 pt-6 pb-8 w-full space-y-2">
+          <label className="block">
+            Printer Name
+            <input className="p-1 rounded w-full text-black"
+              name='name' defaultValue={printer.printer.printer_name}/>
+          </label>
+          <label className="block">
+            Moonraker IP
+            <input className="p-1 rounded w-full text-black"
+              name='ip'
+              defaultValue={printer.printer.moonraker_ip}
+              readOnly />
+          </label>
+          <label className="block">
+            Moonraker Port
+            <input className="p-1 rounded w-full text-black"
+              name='port'
+              type='number'
+              defaultValue={printer.printer.moonraker_port}
+              readOnly />
+          </label>
+          {cameras.map((cam, i) => {
+            return (
+              <div key={'camera' + i} className='border-2 border-gray-500 rounded px-5 space-y-2 py-2'>
+                <div className='flex justify-end'>
+                  <button className="bg-rose-600 rounded-full p-1 inline-flex items-center justify-center hover:bg-rose-500"
+                    onClick={() => deleteCamera(i)}>
+                    <svg className="h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="white" aria-hidden="true">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <label className="block">
+                  Camera Endpoint<br />
+                  <input className="p-1 rounded w-full text-black"
+                    placeholder='/api/ws?src=cam1'
+                    name={'cameraapi' + i} type="text"
+                    defaultValue={cam.path} />
+                </label>
+                <label className="block">
+                  Camera IP<br />
+                  <input className="p-1 rounded w-full text-black"
+                    placeholder='127.0.0.1'
+                    defaultValue='127.0.0.1'
+                    name={'cameraip' + i} type="text"
+                    value={cam.camera_ip} />
+                </label>
+                <label className="block">
+                  Camera Port<br />
+                  <input className="p-1 rounded w-full text-black"
+                    defaultValue={cam.camera_port}
+                    placeholder='1984'
+                    name={'cameraport' + i} type="number" />
+                </label>
+                <label className="block">
+                  Camera Service<br />
+                  <select className="p-1 rounded block w-full text-black" name={'cameratype' + i} defaultValue={cam.type} >
+                    <option>go2rtc</option>
+                    <option>mjpeg-stream</option>
+                  </select>
+                </label>
+              </div>
+            )
+          })}
+          <div className='flex justify-end'>
+            <button
+              className="min-w-32 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+              type='button'
+              onClick={addCamera}>
+              Add Camera
+            </button>
+          </div>
+          <div className='flex justify-end'>
+            <button
+              className="text-red-600 background-transparent font-bold uppercase px-6 py-2 text-sm outline-none focus:outline-none mr-1 mb-1"
+              type="button"
+              onClick={() => setEditPrinter(false)}
+            >
+              Cancel
+            </button>
+            <button
+              className="min-w-32 text-white bg-blue-700 hover:bg-blue-800 focus:ring-4 focus:outline-none focus:ring-blue-300 font-medium rounded-lg text-sm w-full sm:w-auto px-5 py-2.5 text-center dark:bg-blue-600 dark:hover:bg-blue-700 dark:focus:ring-blue-800"
+              type='submit'>
+              Save Printer
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 
 function PrinterList({printers}) {
   return (
@@ -172,6 +280,7 @@ function PrinterCard({printer}) {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [showCameras, setShowCameras] = useState(false)
+  const [editPrinter, setEditPrinter] = useState(false)
 
   useEffect(() => {
     if (printer.stats.state == 'printing') {
@@ -185,9 +294,36 @@ function PrinterCard({printer}) {
     }
   }, [printer]);
 
+  const updatePrinter = async (formData, numCams) => {
+    const camFields = [...Array(numCams)].map((_, i) => {
+      return {
+        path: formData.get('cameraapi' + i),
+        type: formData.get('cameratype' + i),
+        camera_ip: formData.get('cameraip' + i),
+        camera_port: parseInt(formData.get('cameraport' + i))
+      }
+    })
+
+    const resp = await fetch('/v1/api/printers',{
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        printer_name: formData.get('name'),
+        moonraker_ip: formData.get('ip'),
+        moonraker_port: parseInt(formData.get('port')),
+        cameras: camFields
+      })
+    })
+
+    if (resp.status == 200) {
+      setEditPrinter(false)
+    } else {
+      console.log("failed to edit printer")
+    }
+  }
 
   const emergencyStop = async (printerid) => {
-    const resp = fetch(printerid + '/fluidd/printer/emergency_stop',{
+    const resp = fetch("printers/" + printerid + '/fluidd/printer/emergency_stop',{
       method: 'POST'
     })
 
@@ -195,7 +331,7 @@ function PrinterCard({printer}) {
   }
 
   const printAction = (printerid, action) => {
-    const resp = fetch(printerid + '/fluidd/printer/print/' + action,{
+    const resp = fetch("printers/" + printerid + '/fluidd/printer/print/' + action,{
       method: 'POST'
     })
     
@@ -330,16 +466,25 @@ function PrinterCard({printer}) {
         {status}
       </div>
      <div className='absolute right-4 top-4'>
-        {!confirmDelete ? (
-          <button className="rounded-full bg-gray-500 p-0.5 inline-flex items-center justify-center hover:bg-gray-300 hover:text-gray-50"
+        {!confirmDelete && (
+        <div className='space-x-1'>
+          <button className="rounded-full bg-gray-500 p-1 inline-flex items-center justify-center hover:bg-gray-300 hover:text-gray-50"
+            onClick={() => setEditPrinter(!editPrinter)}>
+            <svg className='w-5 h-5 fill-current' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18,2.9 17.35,2.9 16.96,3.29L15.12,5.12L18.87,8.87M3,17.25V21H6.75L17.81,9.93L14.06,6.18L3,17.25Z" />
+            </svg>
+          </button>          
+          <button className="rounded-full bg-gray-500 p-1 inline-flex items-center justify-center hover:bg-gray-300 hover:text-gray-50"
             onClick={() => setConfirmDelete(true)}>
-            <svg className='w-6 h-6 fill-current' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-            <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" />
+            <svg className='w-5 h-5 fill-current' xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" />
             </svg>
           </button>
-        )
-          : (
-            <div className='space-x-2 inline-flex items-center bg-yellow-500 p-2 rounded'>
+        </div>
+        )}
+        {editPrinter && <PrinterEditor printer={printer} setEditPrinter={setEditPrinter} updatePrinter={updatePrinter} />}
+        {confirmDelete && (
+          <div className='space-x-2 inline-flex items-center bg-yellow-500 p-2 rounded'>
               <p className='font-bold text-white'>Delete?</p>
               <button className="min-w-12 bg-gray-500 hover:bg-gray-300 hover:text-gray-50 inline-flex justify-center items-center space-x-1 py-1 px-4 rounded-full"
                 onClick={() => deletePrinter(printer.id)} disabled={deleting}>
@@ -378,12 +523,12 @@ function PrinterCard({printer}) {
       </div>
       <div className='w-3/4 flex flex-wrap justify-between mt-5 gap-y-3 md:w-full md:block md:w-full md:space-x-4'>
 <Button
-          onClick={() => window.open(printer.id + '/fluidd', '_blank', 'noopener,noreferrer')}>
+          onClick={() => window.open("printers/" + printer.id + '/fluidd', '_blank', 'noopener,noreferrer')}>
           <PrinterIcon className='w-5 h-5 fill-current' />
           <span>Fluidd</span>
         </Button>
         <Button
-          onClick={() => window.open(printer.id + '/mainsail', '_blank', 'noopener,noreferrer')}>
+          onClick={() => window.open("printers/" + printer.id + '/mainsail', '_blank', 'noopener,noreferrer')}>
           <PrinterIcon className='w-5 h-5 fill-current' />
           <span>Mainsail</span>
         </Button>
@@ -403,9 +548,9 @@ function PrinterCard({printer}) {
             {printer.printer.cameras.map((c, i) => {
               switch (c.type) {
                 case 'go2rtc':
-                  return (<CameraGo2RTC key={printer.id + 'cam' + i} src={printer.id + '/' + c.id + c.path} />)
+                  return (<CameraGo2RTC key={printer.id + 'cam' + i} src={"printers/" + printer.id + '/cameras/' + c.id + c.path} />)
                 case 'mjpeg-stream':
-                  return (<CameraMpjegStream key={printer.id + 'cam' + i} src={printer.id + '/' + c.id + c.path} />)
+                  return (<CameraMpjegStream key={printer.id + 'cam' + i} src={"printers/" + printer.id + '/cameras/' + c.id + c.path} />)
                 default:
                   console.log("unknonw camera service")
                   return (<></>)
@@ -441,7 +586,7 @@ function AddPrinterModal({addPrinter, setShowModal, showModal}) {
       </Button>
       </div>
       {
-    showModal?(
+    showModal ? (
         <>
           <div className="bg-gray-900 bg-opacity-80 flex justify-center items-center fixed top-0 start-0 inset-0 z-50 outline-none focus:outline-non">
               <div className="w-96 border-0 rounded-lg shadow-lg relative flex flex-col bg-gray-500 text-gray-100 outline-none focus:outline-none">

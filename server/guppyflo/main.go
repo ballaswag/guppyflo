@@ -12,6 +12,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -180,6 +181,8 @@ func createNgrokToken(ctx context.Context, ngrokKey string) (*string, error) {
 var (
 	Printers            map[string]PrinterInfoStatsPair
 	PrinterQuitChannels map[string]chan bool
+	PrinterMuxes        map[string]*http.ServeMux
+	CameraMuxes         map[string]*http.ServeMux
 	PrintersMapLock     sync.RWMutex
 
 	TSAuthURL    string
@@ -188,6 +191,11 @@ var (
 
 	c      = make(chan Pair[PrinterInfoStatsPair, chan bool])
 	client = http.Client{Timeout: 3 * time.Second}
+
+	FluiddUrl     *url.URL
+	FluiddProxy   *httputil.ReverseProxy
+	MainsailUrl   *url.URL
+	MainsailProxy *httputil.ReverseProxy
 )
 
 func main() {
@@ -207,9 +215,16 @@ func main() {
 
 func run(ctx context.Context) error {
 
-	// log.Println("config:", gtconfig)
 	Printers = make(map[string]PrinterInfoStatsPair)
 	PrinterQuitChannels = make(map[string]chan bool)
+	PrinterMuxes = make(map[string]*http.ServeMux)
+	CameraMuxes = make(map[string]*http.ServeMux)
+
+	FluiddUrl, _ := url.Parse("http://127.0.0.1:9871")
+	FluiddProxy := httputil.NewSingleHostReverseProxy(FluiddUrl)
+
+	MainsailUrl, _ := url.Parse("http://127.0.0.1:9872")
+	MainsailProxy := httputil.NewSingleHostReverseProxy(MainsailUrl)
 
 	startPrinterPoller(gtconfig.Printers)
 	startPrinterDataConsumer()
@@ -237,7 +252,7 @@ func run(ctx context.Context) error {
 	// populate printers
 	PrintersMapLock.Lock()
 	for _, p := range gtconfig.Printers {
-		printerId := fmt.Sprintf("printer-%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
+		printerId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
 		Printers[printerId] = PrinterInfoStatsPair{
 			PrinterId:   printerId,
 			PrinterInfo: p,
@@ -258,6 +273,19 @@ func run(ctx context.Context) error {
 		http.ServeFile(w, r, "www/index.html")
 	})
 	guppyMux.Handle("/assets/", guppyFloHandler)
+
+	guppyMux.HandleFunc("/printers/{printerId}/{rest...}", func(w http.ResponseWriter, r *http.Request) {
+		printerId := r.PathValue("printerId")
+		PrintersMapLock.RLock()
+		mux, exists := PrinterMuxes[printerId]
+		PrintersMapLock.RUnlock()
+		if exists {
+			mux.ServeHTTP(w, r)
+			return
+		}
+
+		http.Error(w, "printer routers not found", http.StatusNotFound)
+	})
 
 	guppyMux.HandleFunc("/v1/api/printers", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
@@ -291,7 +319,7 @@ func run(ctx context.Context) error {
 			}
 
 			PrintersMapLock.Lock()
-			printerId := fmt.Sprintf("printer-%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
+			printerId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
 			_, exists := Printers[printerId]
 			if exists {
 				PrintersMapLock.Unlock()
@@ -300,7 +328,7 @@ func run(ctx context.Context) error {
 			}
 
 			for camIdx := range p.Cameras {
-				cameraId := fmt.Sprintf("camera-%d", hash(fmt.Sprintf("%s:%d",
+				cameraId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d",
 					p.Cameras[camIdx].CameraIp, p.Cameras[camIdx].CameraPort)))
 
 				p.Cameras[camIdx].Id = cameraId
@@ -319,13 +347,79 @@ func run(ctx context.Context) error {
 			PrintersMapLock.Unlock()
 
 			startPrinterPoller([]GTPrinterConfig{p})
-			setupPrinterRoutes(guppyMux, []GTPrinterConfig{p})
+			setupPrinterRoutes([]GTPrinterConfig{p}, FluiddUrl, FluiddProxy, MainsailUrl, MainsailProxy)
 
 			GTConfigLock.Lock()
+			defer GTConfigLock.Unlock()
 			gtconfig.Printers = append(gtconfig.Printers, p)
 			saveGTConfig(gtconfig)
-			GTConfigLock.Unlock()
+
 			err = json.NewEncoder(w).Encode(&newPrinter)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		case "PUT":
+			decoder := json.NewDecoder(r.Body)
+			var p GTPrinterConfig
+			err := decoder.Decode(&p)
+			if err != nil {
+				log.Println(err)
+				http.Error(w, "Failed to decode new printer json", http.StatusBadRequest)
+				return
+			}
+
+			PrintersMapLock.Lock()
+			defer PrintersMapLock.Unlock()
+			printerId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
+			printer, exists := Printers[printerId]
+			if !exists {
+				http.Error(w, "Printer doesn't exist for update", http.StatusBadRequest)
+				return
+			}
+
+			_, exists = PrinterMuxes[printerId]
+			if !exists {
+				http.Error(w, "Printer mux doesn't exist for update", http.StatusBadRequest)
+				return
+			}
+
+			// delete camera mux
+			_, exists = CameraMuxes[printerId]
+			if exists {
+				delete(CameraMuxes, printerId)
+			}
+
+			for camIdx := range p.Cameras {
+				cameraId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d",
+					p.Cameras[camIdx].CameraIp, p.Cameras[camIdx].CameraPort)))
+
+				p.Cameras[camIdx].Id = cameraId
+			}
+
+			// recreate camera mux
+			cameraMux := setupCameraMuxes(p.Cameras, printerId)
+			if cameraMux != nil {
+				CameraMuxes[printerId] = cameraMux
+			}
+
+			// update printer name
+			GTConfigLock.Lock()
+			defer GTConfigLock.Unlock()
+			pidx := slices.IndexFunc(gtconfig.Printers, func(p GTPrinterConfig) bool {
+				return p.MoonrakerIP == printer.PrinterInfo.MoonrakerIP && p.MoonrakerPort == printer.PrinterInfo.MoonrakerPort
+			})
+
+			// save printer config
+			gtconfig.Printers[pidx].Cameras = p.Cameras
+			gtconfig.Printers[pidx].Name = p.Name
+			saveGTConfig(gtconfig)
+
+			// update in-mem printer obj
+			printer.PrinterInfo = gtconfig.Printers[pidx]
+			Printers[printerId] = printer
+
+			err = json.NewEncoder(w).Encode(&printer)
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
@@ -334,9 +428,10 @@ func run(ctx context.Context) error {
 			printerId := r.URL.Query().Get("id")
 			if printerId != "" {
 				PrintersMapLock.Lock()
+				defer PrintersMapLock.Unlock()
+
 				printer, exists := Printers[printerId]
 				if !exists {
-					PrintersMapLock.Unlock()
 					http.Error(w, "Printer doesn't exist for deletion", http.StatusBadRequest)
 					return
 				}
@@ -348,7 +443,16 @@ func run(ctx context.Context) error {
 					delete(PrinterQuitChannels, printerId)
 				}
 
-				PrintersMapLock.Unlock()
+				_, exists = PrinterMuxes[printerId]
+				if exists {
+					delete(PrinterMuxes, printerId)
+				}
+
+				_, exists = CameraMuxes[printerId]
+				if exists {
+					delete(CameraMuxes, printerId)
+				}
+
 				gtConfigDeletePrinter(printer.PrinterInfo.MoonrakerIP, printer.PrinterInfo.MoonrakerPort)
 				w.WriteHeader(http.StatusNoContent)
 			}
@@ -447,7 +551,7 @@ func run(ctx context.Context) error {
 		log.Fatal(http.ListenAndServe(":9871", fluiddMux))
 	}()
 
-	setupPrinterRoutes(guppyMux, gtconfig.Printers)
+	setupPrinterRoutes(gtconfig.Printers, FluiddUrl, FluiddProxy, MainsailUrl, MainsailProxy)
 	mainsailMux := http.NewServeMux()
 	mainsailMux.Handle("/", gziphandler.GzipHandler(http.FileServer(http.Dir("mainsail"))))
 
@@ -562,12 +666,26 @@ func hash(s string) uint32 {
 }
 
 func startPrinterPoller(printers []GTPrinterConfig) {
+	PrintersMapLock.Lock()
+	for _, p := range printers {
+		printerId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
+		Printers[printerId] = PrinterInfoStatsPair{
+			PrinterId:   printerId,
+			PrinterInfo: p,
+			Stats: PrinterStats{
+				State: "offline",
+			},
+			SDCard: VirtualSDCard{},
+		}
+	}
+	PrintersMapLock.Unlock()
+
 	for _, printer := range printers {
 		// printerId := fmt.Sprintf("printer%d", i)
 		quitSignal := make(chan bool)
 		go func(p GTPrinterConfig, quit chan bool) {
 			log.Println("Connecting to printer at:", p.MoonrakerIP, p.MoonrakerPort)
-			printerId := fmt.Sprintf("printer-%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
+			printerId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
 			// log.PrintLn("Starting fetcher for printer at ", p.MoonrakerIP, p.MoonrakerPort)
 			maxFailedAttempt := 3
 			printerUrl := fmt.Sprintf("http://%v:%v/printer/objects/query?print_stats&virtual_sdcard&extruder&heater_bed",
@@ -590,8 +708,7 @@ func startPrinterPoller(printers []GTPrinterConfig) {
 
 							c <- Pair[PrinterInfoStatsPair, chan bool]{
 								First: PrinterInfoStatsPair{
-									PrinterId:   printerId,
-									PrinterInfo: p,
+									PrinterId: printerId,
 									Stats: PrinterStats{
 										State: "offline",
 									},
@@ -613,16 +730,13 @@ func startPrinterPoller(printers []GTPrinterConfig) {
 						log.Println("error coding pstats", err)
 					}
 
-					// log.Println("state", moonrakerResult.Result.Status.Stats.State)
-
 					c <- Pair[PrinterInfoStatsPair, chan bool]{
 						First: PrinterInfoStatsPair{
-							PrinterId:   printerId,
-							PrinterInfo: p,
-							Stats:       moonrakerResult.Result.Status.Stats,
-							SDCard:      moonrakerResult.Result.Status.SDCard,
-							Extruder:    moonrakerResult.Result.Status.Extruder,
-							HeaterBed:   moonrakerResult.Result.Status.HeaterBed,
+							PrinterId: printerId,
+							Stats:     moonrakerResult.Result.Status.Stats,
+							SDCard:    moonrakerResult.Result.Status.SDCard,
+							Extruder:  moonrakerResult.Result.Status.Extruder,
+							HeaterBed: moonrakerResult.Result.Status.HeaterBed,
 						},
 						Second: quit,
 					}
@@ -636,8 +750,8 @@ func startPrinterDataConsumer() {
 	go func() {
 		// reader
 		for ps := range c {
-			// log.Println("read pstat", ps)
 			PrintersMapLock.Lock()
+			ps.First.PrinterInfo = Printers[ps.First.PrinterId].PrinterInfo
 			Printers[ps.First.PrinterId] = ps.First
 			PrinterQuitChannels[ps.First.PrinterId] = ps.Second
 			PrintersMapLock.Unlock()
@@ -647,39 +761,39 @@ func startPrinterDataConsumer() {
 }
 
 func setupMoonrakerAndUIRoutes(
-	guppyMux *http.ServeMux,
-	printerId string,
+	printerMux *http.ServeMux,
 	moonrakerRemote *url.URL,
 	moonrakerProxy *httputil.ReverseProxy,
 	uiPrefix string,
 	uiRemote *url.URL,
 	uiProxy *httputil.ReverseProxy) {
 
-	prefix := fmt.Sprintf("/%s/%s", printerId, uiPrefix)
+	prefix := fmt.Sprintf("/printers/%s", uiPrefix)
 	log.Println("Creating printer routes at", moonrakerRemote, prefix)
 
 	moonrakerGzHandler := gziphandler.GzipHandler(
 		http.StripPrefix(prefix, http.HandlerFunc(reverseProxyHandler(moonrakerProxy, moonrakerRemote))))
 
-	guppyMux.Handle(prefix+"/websocket", moonrakerGzHandler)
-	guppyMux.Handle(prefix+"/printer/", moonrakerGzHandler)
-	guppyMux.Handle(prefix+"/api/", moonrakerGzHandler)
-	guppyMux.Handle(prefix+"/access/", moonrakerGzHandler)
-	guppyMux.Handle(prefix+"/machine/", moonrakerGzHandler)
-	guppyMux.Handle(prefix+"/server/", moonrakerGzHandler)
+	printerMux.Handle(prefix+"/websocket", moonrakerGzHandler)
+	printerMux.Handle(prefix+"/printer/", moonrakerGzHandler)
+	printerMux.Handle(prefix+"/api/", moonrakerGzHandler)
+	printerMux.Handle(prefix+"/access/", moonrakerGzHandler)
+	printerMux.Handle(prefix+"/machine/", moonrakerGzHandler)
+	printerMux.Handle(prefix+"/server/", moonrakerGzHandler)
 
-	uiGzHandler := gziphandler.GzipHandler(
-		http.StripPrefix(prefix, http.HandlerFunc(reverseProxyHandler(uiProxy, uiRemote))))
+	if uiProxy != nil {
+		uiGzHandler := gziphandler.GzipHandler(
+			http.StripPrefix(prefix, http.HandlerFunc(reverseProxyHandler(uiProxy, uiRemote))))
 
-	guppyMux.Handle(prefix+"/", uiGzHandler)
+		printerMux.Handle(prefix+"/", uiGzHandler)
+	}
 }
 
-func setupPrinterRoutes(guppyMux *http.ServeMux, printers []GTPrinterConfig) {
-	fluiddUrl, _ := url.Parse("http://127.0.0.1:9871")
-	fluiddProxy := httputil.NewSingleHostReverseProxy(fluiddUrl)
-
-	mainsailUrl, _ := url.Parse("http://127.0.0.1:9872")
-	mainsailProxy := httputil.NewSingleHostReverseProxy(mainsailUrl)
+func setupPrinterRoutes(printers []GTPrinterConfig,
+	fluiddUrl *url.URL,
+	fluiddProxy *httputil.ReverseProxy,
+	mainsailUrl *url.URL,
+	mainsailProxy *httputil.ReverseProxy) {
 
 	for _, p := range printers {
 		remote, err := url.Parse(fmt.Sprintf("http://%s:%d", p.MoonrakerIP, p.MoonrakerPort))
@@ -688,34 +802,74 @@ func setupPrinterRoutes(guppyMux *http.ServeMux, printers []GTPrinterConfig) {
 			continue
 		}
 
-		printerId := fmt.Sprintf("printer-%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
-
+		printerMux := http.NewServeMux()
+		printerId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
 		proxy := httputil.NewSingleHostReverseProxy(remote)
+		fluiddPrefix := printerId + "/fluidd"
+		mainsailPrefix := printerId + "/mainsail"
 
-		setupMoonrakerAndUIRoutes(guppyMux, printerId, remote, proxy, "fluidd", fluiddUrl, fluiddProxy)
-		setupMoonrakerAndUIRoutes(guppyMux, printerId, remote, proxy, "mainsail", mainsailUrl, mainsailProxy)
+		setupMoonrakerAndUIRoutes(printerMux, remote, proxy, fluiddPrefix, fluiddUrl, fluiddProxy)
+		setupMoonrakerAndUIRoutes(printerMux, remote, proxy, mainsailPrefix, mainsailUrl, mainsailProxy)
 
-		cameras := make(map[string]string)
-		for _, cam := range p.Cameras {
-			cameraId := fmt.Sprintf("camera-%d", hash(fmt.Sprintf("%s:%d", cam.CameraIp, cam.CameraPort)))
-			_, exists := cameras[cameraId]
+		// short paths for moonraker
+		setupMoonrakerAndUIRoutes(printerMux, remote, proxy, printerId, nil, nil)
+
+		camerasMux := setupCameraMuxes(p.Cameras, printerId)
+
+		if camerasMux != nil {
+			printerMux.HandleFunc("/printers/{printerId}/cameras/{rest...}", func(w http.ResponseWriter, r *http.Request) {
+				printerId := r.PathValue("printerId")
+				PrintersMapLock.RLock()
+				mux, exists := CameraMuxes[printerId]
+				PrintersMapLock.RUnlock()
+				if exists {
+					mux.ServeHTTP(w, r)
+					return
+				}
+
+				http.Error(w, "camera routers not found", http.StatusNotFound)
+			})
+		}
+
+		log.Println("Created printer mux for printer id", printerId)
+		PrintersMapLock.Lock()
+		PrinterMuxes[printerId] = printerMux
+		if camerasMux != nil {
+			CameraMuxes[printerId] = camerasMux
+		}
+		PrintersMapLock.Unlock()
+	}
+}
+
+func setupCameraMuxes(cameras []GTPrinterCamerasConfig, printerId string) *http.ServeMux {
+	var camerasMux *http.ServeMux = nil
+	if len(cameras) > 0 {
+		visitedCameras := make(map[string]string)
+		camerasMux = http.NewServeMux()
+
+		printerCameraPrefix := fmt.Sprintf("/printers/%s/cameras", printerId)
+
+		for _, cam := range cameras {
+			cameraId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d", cam.CameraIp, cam.CameraPort)))
+			_, exists := visitedCameras[cameraId]
 			if !exists {
-				cameras[cameraId] = cameraId
+				visitedCameras[cameraId] = cameraId
 
 				cameraUrl, err2 := url.Parse(fmt.Sprintf("http://%s:%d", cam.CameraIp, cam.CameraPort))
 				if err2 != nil {
 					log.Println("Failed to create URL from for printer cameras", cam.CameraIp, cam.CameraPort)
 				}
 
-				cameraPrefix := fmt.Sprintf("/%s/%s/", printerId, cameraId)
+				cameraPrefix := fmt.Sprintf("%s/%s/", printerCameraPrefix, cameraId)
 				cameraProxy := httputil.NewSingleHostReverseProxy(cameraUrl)
 
 				log.Println("Creating camera routes at", cameraUrl, cameraPrefix)
 
-				guppyMux.Handle(cameraPrefix,
-					gziphandler.GzipHandler(http.StripPrefix(cameraPrefix,
-						http.HandlerFunc(reverseProxyHandler(cameraProxy, cameraUrl)))))
+				camerasMux.Handle(cameraPrefix, gziphandler.GzipHandler(http.StripPrefix(cameraPrefix,
+					http.HandlerFunc(reverseProxyHandler(cameraProxy, cameraUrl)))))
 			}
 		}
 	}
+
+	return camerasMux
 }
