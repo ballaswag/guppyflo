@@ -14,7 +14,7 @@ stop_and_remove_service() {
     fi
 
     if [ -f "/etc/systemd/system/guppyflo.service" ]; then
-        service guppyflo stop
+        systemctl stop guppyflo
     fi
 
     if [ -d "$GUPPY_DIR" ]; then
@@ -35,7 +35,7 @@ install_services() {
 
 restart_service() {
     printf "${green}Restarting GuppyFLO service ${white}\n"
-    service guppyflo restart
+    systemctl restart guppyflo
 }
 
 install_buildroot_service() {
