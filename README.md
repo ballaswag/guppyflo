@@ -42,8 +42,10 @@ wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh
 3. More printer metrics at a glance (e.g. heater states)
 
 ## Screenshot
-<img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo.png" alt="GuppyFLO UI" width="700"/>
-<img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/auto-camera-detection.gif" alt="Auto camera detection"/>
+<p>
+    <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/auto-camera-detection.gif" alt="Auto camera detection"/>
+    <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo.png" alt="GuppyFLO UI" width="650"/>
+</p>
 
 ## Configuration
 ### Local Access
