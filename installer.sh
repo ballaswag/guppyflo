@@ -7,6 +7,21 @@ white=`echo "\033[m"`
 
 GUPPY_DIR="${HOME}/guppyflo"
 
+stop_and_remove_service() {
+    if [ -f "/etc/init.d/S99guppyflo" ]; then
+        GUPPY_DIR=/usr/data/guppyflo
+        /etc/init.d/S99guppyflo stop &> /dev/null
+    fi
+
+    if [ -f "/etc/systemd/system/guppyflo.service" ]; then
+        service guppyflo stop
+    fi
+
+    if [ -d "$GUPPY_DIR" ]; then
+        rm -rf "$GUPPY_DIR/fluidd" "$GUPPY_DIR/mainsail" "$GUPPY_DIR/services" "$GUPPY_DIR/www" "$GUPPY_DIR/guppyflo"
+    fi
+}
+
 substitute_service_template() {
  	sed -i "s|%USER%|$USER|g; s|%WORK_DIR%|$GUPPY_DIR|g; s|%GUPPY_EXEC%|$GUPPY_DIR/guppyflo|g" $GUPPY_DIR/services/guppyflo.service
 }
@@ -47,6 +62,7 @@ if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "x86_64" ]; then
     fi
     
     curl -s -L https://github.com/ballaswag/guppyflo/releases/latest/download/$ASSET -o /tmp/guppyflo.zip
+    stop_and_remove_service
     mkdir -p $GUPPY_DIR
     unzip /tmp/guppyflo.zip -d $GUPPY_DIR
 
@@ -66,6 +82,7 @@ elif [ "$ARCH" = "mips" ]; then
     chmod +x /tmp/curl
 
     /tmp/curl -s -L https://github.com/ballaswag/guppyflo/releases/latest/download/$ASSET -o /tmp/guppyflo.zip
+    stop_and_remove_service
     unzip /tmp/guppyflo.zip -d $GUPPY_DIR
     
     install_buildroot_service
