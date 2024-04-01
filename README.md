@@ -30,19 +30,20 @@ wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh
 3. Unlimited `go2rtc` WebRTC cameras.
 4. Mpjeg-streamer webcams over `tailscale`. Don't use `ngrok` for these streams, they'll use all your free `ngrok` bandwidth.
 5. Integrated `tailscale`.
-6. Free and secure remote access with `ngrok` (paid `ngrok` subscription availiable via their terms).
-7. Unlimited local access.
-8. Multiplatform support (runs on Linux/Windows x86_64, buildroot mipsle, PI ARMv6).
-9. Mobileraker via `tailscale`.
+6. Auto camera detection (mjpeg stream).
+7. Free and secure remote access with `ngrok` (paid `ngrok` subscription availiable via their terms).
+8. Unlimited local access.
+9. Multiplatform support (runs on Linux/Windows x86_64, buildroot mipsle, PI ARMv6).
+10. Mobileraker via `tailscale`.
 
 ## Roadmap
 1. More camera service support (e.g. ustreamer/camera-streamer).
-2. Automatic camera detection and configuration.
+2. Automatic camera detection and configuration*.
 3. More printer metrics at a glance (e.g. heater states)
-4. Websocket instead of polling between server/client.
 
 ## Screenshot
 <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo.png" alt="GuppyFLO UI" width="700"/>
+<img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/auto-camera-detection.gif" alt="Auto camera detection"/>
 
 ## Configuration
 ### Local Access
