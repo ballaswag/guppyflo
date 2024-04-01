@@ -44,7 +44,7 @@ wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh
 ## Screenshot
 <p>
     <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/auto-camera-detection.gif" alt="Auto camera detection"/>
-    <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo.png" alt="GuppyFLO UI" width="650"/>
+    <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo.png" alt="GuppyFLO UI" width="600"/>
 </p>
 
 ## Configuration
