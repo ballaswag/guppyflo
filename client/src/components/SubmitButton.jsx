@@ -1,12 +1,15 @@
 import SpinnerIcon from '../assets/images/spinner.svg?react'
+import { useFormStatus } from "react-dom"
 
-function Button({onClick, children, disabled, loading, ...rest}) {
+
+function Button({children, ...rest}) {
+    const { pending, action } = useFormStatus()
+
     return (
         <button className="button"
-        onClick={onClick}
-        disabled={disabled}
+        disabled={pending && action === rest.formAction}
         {...rest} >
-        {loading 
+        {pending && action === rest.formAction
             ? (<SpinnerIcon className='w-6 h-6 text-gray-300 animate-spin'/>)
             : children}
       </button>

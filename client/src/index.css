@@ -1,3 +1,29 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+}
+
+
+@layer components {
+
+  .autofill-text:-webkit-autofill {
+    -webkit-text-fill-color: rgb(243, 244, 246);
+  }
+
+  .text-input {
+    @apply autofill-text;
+    @apply autofill:shadow-[inset_0_0_0px_1000px_rgb(31,41,55)];
+    @apply w-full border-0 border-b-2 border-gray-400 mt-1 p-1 bg-gray-800 focus:outline-none focus:border-gray-200;
+  }
+
+  .button {
+    @apply min-w-32 bg-gray-500 hover:bg-gray-400 hover:text-gray-50 inline-flex justify-center items-center space-x-1 py-2 rounded-full
+  }
+}
