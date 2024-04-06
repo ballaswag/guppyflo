@@ -18,8 +18,8 @@ function PrinterForm({ printer, printerAction, setModal, isEdit }) {
     }])
   }
 
-  const deleteCamera = (camIdx) => {
-    setCameras(cameras.filter((cam, idx) => idx != camIdx))
+  const deleteCamera = (cam) => {
+    setCameras(cameras.filter((c, idx) =>  cam.id != c.id))
   }
 
   const discoverCameras = async (formData) => {
@@ -42,7 +42,7 @@ function PrinterForm({ printer, printerAction, setModal, isEdit }) {
   return (
     <div className="bg-gray-900 bg-opacity-80 flex justify-center pt-24 fixed top-0 start-0 inset-0 z-50 overflow-scroll">
       <div className="w-96 rounded drop-shadow-lg relative flex flex-col text-gray-100">
-        <form action={(formData) => printerAction(formData, cameras.length)}
+        <form key={printer && printer.printer.id} action={(formData) => printerAction(formData, cameras)}
           className="bg-gray-700 rounded px-8 pt-6 pb-8 space-y-2">
           <label className="block">
             Printer Name
@@ -69,19 +69,19 @@ function PrinterForm({ printer, printerAction, setModal, isEdit }) {
           </label>
           {cameras.map((cam, i) => {
             return (
-              <div key={'camera' + i} className='border-t-2 border-dotted border-gray-400 space-y-2 py-4 relative'>
+              <div key={cam.id} className='border-t-2 border-dotted border-gray-400 space-y-2 py-4 relative'>
                 <div className='absolute right-0 top-2'>
                   <button className="rounded-full bg-gray-500 p-1 inline-flex items-center justify-center hover:bg-gray-300 hover:text-gray-50"
                     type='button'
-                    onClick={() => deleteCamera(i)}>
+                    onClick={() => deleteCamera(cam)}>
                     <CloseIcon className='w-5 h-5 fill-current' />
                   </button>
                 </div>
                 <label className="block">
                   Camera Endpoint<br />
                   <input className="text-input"
-                    placeholder='/api/ws?src=cam1'
-                    name={'cameraapi' + i} type="text"
+                    placeholder='/stream.html?src=cam1'
+                    name={'cameraapi' + cam.id} type="text"
                     defaultValue={cam.path} />
                 </label>
                 <label className="block">
@@ -89,7 +89,7 @@ function PrinterForm({ printer, printerAction, setModal, isEdit }) {
                   <input className="text-input"
                     placeholder='127.0.0.1'
                     defaultValue={cam.camera_ip || '127.0.0.1'}
-                    name={'cameraip' + i}
+                    name={'cameraip' + cam.id}
                     type="text" />
                 </label>
                 <label className="block">
@@ -97,13 +97,13 @@ function PrinterForm({ printer, printerAction, setModal, isEdit }) {
                   <input className="text-input"
                     defaultValue={cam.camera_port || '1984'}
                     placeholder='1984'
-                    name={'cameraport' + i}
+                    name={'cameraport' + cam.id}
                     type="number" />
                 </label>
                 <label className="block">
                   Camera Service<br />
                   <select className="text-input"
-                    name={'cameratype' + i}
+                    name={'cameratype' + cam.id}
                     defaultValue={cam.type}>
                     <option>go2rtc</option>
                     <option>mjpeg-stream</option>

@@ -31,13 +31,13 @@ function Printers() {
     setSettings(data)
   };
 
-  const addPrinter = async (formData, numCams) => {
-    const camFields = [...Array(numCams)].map((_, i) => {
+  const addPrinter = async (formData, cameras) => {
+    const camFields = cameras.map((cam, _) => {
       return {
-        path: formData.get('cameraapi' + i),
-        type: formData.get('cameratype' + i),
-        camera_ip: formData.get('cameraip' + i),
-        camera_port: parseInt(formData.get('cameraport' + i))
+        path: formData.get('cameraapi' + cam.id),
+        type: formData.get('cameratype' + cam.id),
+        camera_ip: formData.get('cameraip' + cam.id),
+        camera_port: parseInt(formData.get('cameraport' + cam.id))
       }
     })
 
@@ -70,9 +70,9 @@ function Printers() {
 
   return (
     <>
-      {(!settings.ngrok_auth_token && !settings.ngrok_api_key && settings.ts_auth_url) && 
+      {(!settings.ngrok_auth_token && !settings.ngrok_api_key && settings.ts_auth_url) &&
         (
-        <p className='py-2 text-lg px-10'>
+          <p className='py-2 text-lg px-10'>
             <span className='inline-flex mr-2'>
               <WarningIcon className='w-6 h-6 fill-yellow-500' />
             </span>
@@ -137,19 +137,48 @@ function PrintersSummary({ printers }) {
   )
 }
 
-function CameraGo2RTC({ src }) {
+function CameraGo2RTC({ base, campath }) {
   const parent = useRef();
 
   useEffect(() => {
-    const video = document.createElement('video-stream');
-    video.mode = 'webrtc'
-    video.style.flex = '1 0 320px';
-    video.src = new URL(src, location.href);
-    parent.current.appendChild(video);
-  }, [src, parent])
+
+    const camUrl = new URL(base + campath, location.href)
+    const params = new URLSearchParams(camUrl.search);
+
+    // support multiple streams and multiple modes
+    const streams = params.getAll('src');
+    const modes = params.getAll('mode');
+    if (modes.length === 0) modes.push('');
+
+    while (modes.length > streams.length) {
+      streams.push(streams[0]);
+    }
+    while (streams.length > modes.length) {
+      modes.push(modes[0]);
+    }
+
+    if (streams.length > 1) {
+      document.body.className = 'flex';
+    }
+
+    const background = params.get('background') !== 'false';
+    const width = '1 0 ' + (params.get('width') || '320px');
+
+    for (let i = 0; i < 1; i++) { // take first src for now
+      const video = document.createElement('video-stream')
+      video.background = background;
+      video.mode = modes[i] || video.mode
+      video.style.flex = width
+      video.src = new URL(base + '/api/ws?src=' + encodeURIComponent(streams[i]), location.href)
+      parent.current.appendChild(video)
+    }
+
+  }, [base, campath, parent])
 
   return (
-    <div ref={parent} />
+    <a className='border border-gray-500 hover:border-gray-400 hover:border-2' href={base + campath} target='_blank'>
+      <div ref={parent} />
+    </a>
   )
 }
 
@@ -202,13 +231,13 @@ function PrinterCard({ printer }) {
     }
   }, [printer]);
 
-  const updatePrinter = async (formData, numCams) => {
-    const camFields = [...Array(numCams)].map((_, i) => {
+  const updatePrinter = async (formData, cameras) => {
+    const camFields = cameras.map((cam, _) => {
       return {
-        path: formData.get('cameraapi' + i),
-        type: formData.get('cameratype' + i),
-        camera_ip: formData.get('cameraip' + i),
-        camera_port: parseInt(formData.get('cameraport' + i))
+        path: formData.get('cameraapi' + cam.id),
+        type: formData.get('cameratype' + cam.id),
+        camera_ip: formData.get('cameraip' + cam.id),
+        camera_port: parseInt(formData.get('cameraport' + cam.id))
       }
     })
 
@@ -377,8 +406,8 @@ function PrinterCard({ printer }) {
         {!confirmDelete && (
           <div className='space-x-1'>
             <button className="rounded-full bg-gray-500 p-1 inline-flex items-center justify-center hover:bg-gray-300 hover:text-gray-50"
-            onClick={() => setShowPrinterNetworkInfo(!showPrinterNetworkInfo)}>
-            <NetworkInfoIcon className='w-5 h-5 fill-current' />
+              onClick={() => setShowPrinterNetworkInfo(!showPrinterNetworkInfo)}>
+              <NetworkInfoIcon className='w-5 h-5 fill-current' />
             </button>
             <button className="rounded-full bg-gray-500 p-1 inline-flex items-center justify-center hover:bg-gray-300 hover:text-gray-50"
               onClick={() => setEditPrinter(!editPrinter)}>
@@ -458,7 +487,7 @@ function PrinterCard({ printer }) {
             {printer.printer.cameras.map((c, i) => {
               switch (c.type) {
                 case 'go2rtc':
-                  return (<CameraGo2RTC key={printer.id + 'cam' + i} src={"printers/" + printer.id + '/cameras/' + c.id + c.path} />)
+                  return (<CameraGo2RTC key={printer.id + 'cam' + i} base={"printers/" + printer.id + '/cameras/' + c.id} campath={c.path} />)
                 case 'mjpeg-stream':
                   return (<CameraMpjegStream key={printer.id + 'cam' + i} src={"printers/" + printer.id + '/cameras/' + c.id + c.path} />)
                 default:

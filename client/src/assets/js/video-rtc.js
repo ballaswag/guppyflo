@@ -237,14 +237,16 @@ export class VideoRTC extends HTMLElement {
      */
     oninit() {
         this.video = document.createElement('video');
-        this.video.controls = true;
+        this.video.controls = false;
         this.video.playsInline = true;
         this.video.preload = 'auto';
 
-        this.video.style.display = 'block'; // fix bottom margin 4px
+/*         this.video.style.display = 'block'; // fix bottom margin 4px
         this.video.style.width = '100%';
         this.video.style.height = '100%';
+ */
 
+        this.video.className = 'max-w-[410px]'
         this.appendChild(this.video);
 
         // all Safari lies about supported audio codecs

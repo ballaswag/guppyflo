@@ -66,16 +66,14 @@ type HeaterBedStats struct {
 type CameraInfo struct {
 	Name        string `json:"name"`
 	Service     string `json:"service"`
-	UrlStream   string `json:"urlStream"`
-	UrlSnapshot string `json:"urlSnapshot"`
+	UrlStream   string `json:"stream_url"`
+	UrlSnapshot string `json:"snapshot_url"`
 	Enabled     bool   `json:"enabled"`
 }
 
 type MoonrakerCameras struct {
 	Result struct {
-		Value struct {
-			Cameras map[string]CameraInfo
-		}
+		Webcams []CameraInfo `json:"webcams"`
 	} `json:"result"`
 }
 
@@ -365,9 +363,7 @@ func run(ctx context.Context) error {
 			}
 
 			for camIdx := range p.Cameras {
-				cameraId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d",
-					p.Cameras[camIdx].CameraIp, p.Cameras[camIdx].CameraPort)))
-
+				cameraId := getCameraId(p.Cameras[camIdx])
 				p.Cameras[camIdx].Id = cameraId
 			}
 
@@ -428,9 +424,7 @@ func run(ctx context.Context) error {
 			}
 
 			for camIdx := range p.Cameras {
-				cameraId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d",
-					p.Cameras[camIdx].CameraIp, p.Cameras[camIdx].CameraPort)))
-
+				cameraId := getCameraId(p.Cameras[camIdx])
 				p.Cameras[camIdx].Id = cameraId
 			}
 
@@ -618,7 +612,7 @@ func run(ctx context.Context) error {
 		for _ = range time.Tick(1 * time.Second) {
 			status, err := lc.Status(context.Background())
 			if err != nil {
-				log.Println("error polling ts state: %v", err)
+				log.Println("error polling ts state:", err)
 				continue
 			}
 
@@ -815,7 +809,8 @@ func setupMoonrakerAndUIRoutes(
 	moonrakerProxy *httputil.ReverseProxy,
 	uiPrefix string,
 	uiRemote *url.URL,
-	uiProxy *httputil.ReverseProxy) {
+	uiProxy *httputil.ReverseProxy,
+	cameras []GTPrinterCamerasConfig) {
 
 	prefix := fmt.Sprintf("/printers/%s", uiPrefix)
 	log.Println("Creating printer routes at", moonrakerRemote, prefix)
@@ -829,6 +824,31 @@ func setupMoonrakerAndUIRoutes(
 	printerMux.Handle(prefix+"/access/", moonrakerGzHandler)
 	printerMux.Handle(prefix+"/machine/", moonrakerGzHandler)
 	printerMux.Handle(prefix+"/server/", moonrakerGzHandler)
+
+	// setup route on ui root, e.g. fluid/ mainsail/
+	visitedCameras := make(map[string]string)
+	for _, cam := range cameras {
+		_, exists := visitedCameras[cam.Path]
+		if !exists {
+			visitedCameras[cam.Path] = cam.Path
+
+			cameraUrl, err2 := url.Parse(fmt.Sprintf("http://%s:%d", cam.CameraIp, cam.CameraPort))
+			if err2 != nil {
+				log.Println("Failed to create URL from for printer cameras", cam.CameraIp, cam.CameraPort)
+			}
+
+			pathParts := strings.Split(strings.TrimPrefix(cam.Path, "/"), "/")
+			if len(pathParts) > 1 && (!strings.Contains(pathParts[0], "?") && !strings.Contains(pathParts[0], "=")) {
+				cameraPrefix := fmt.Sprintf(prefix+"/%s/", pathParts[0])
+				cameraProxy := httputil.NewSingleHostReverseProxy(cameraUrl)
+
+				log.Println("Creating camera routes at", cameraUrl, cameraPrefix)
+
+				printerMux.Handle(cameraPrefix, gziphandler.GzipHandler(http.StripPrefix(prefix,
+					http.HandlerFunc(reverseProxyHandler(cameraProxy, cameraUrl)))))
+			}
+		}
+	}
 
 	if uiProxy != nil {
 		uiGzHandler := gziphandler.GzipHandler(
@@ -851,17 +871,44 @@ func setupPrinterRoutes(printers []GTPrinterConfig,
 			continue
 		}
 
+		// try to discover camera port for relative camera paths
+		moonrakerCams := getMoonrakerCameras(p.MoonrakerIP, strconv.Itoa(p.MoonrakerPort))
+		autoDetectedCams := findCameras(p.MoonrakerIP, strconv.Itoa(p.MoonrakerPort))
+
+		configurableCams := make(map[string]GTPrinterCamerasConfig)
+		for _, mc := range moonrakerCams {
+			for _, detectedCam := range autoDetectedCams {
+				if mc.UrlStream == detectedCam.Path {
+					cameraId := getCameraId(detectedCam)
+					_, exists := configurableCams[cameraId]
+					if !exists {
+						configurableCams[cameraId] = detectedCam
+					}
+					break
+				}
+			}
+		}
+
+		for _, cam := range p.Cameras {
+			delete(configurableCams, cam.Id)
+		}
+
+		// add any unique ones to the camera list
+		for _, v := range configurableCams {
+			p.Cameras = append(p.Cameras, v)
+		}
+
 		printerMux := http.NewServeMux()
 		printerId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d", p.MoonrakerIP, p.MoonrakerPort)))
 		proxy := httputil.NewSingleHostReverseProxy(remote)
 		fluiddPrefix := printerId + "/fluidd"
 		mainsailPrefix := printerId + "/mainsail"
 
-		setupMoonrakerAndUIRoutes(printerMux, remote, proxy, fluiddPrefix, fluiddUrl, fluiddProxy)
-		setupMoonrakerAndUIRoutes(printerMux, remote, proxy, mainsailPrefix, mainsailUrl, mainsailProxy)
+		setupMoonrakerAndUIRoutes(printerMux, remote, proxy, fluiddPrefix, fluiddUrl, fluiddProxy, p.Cameras)
+		setupMoonrakerAndUIRoutes(printerMux, remote, proxy, mainsailPrefix, mainsailUrl, mainsailProxy, p.Cameras)
 
 		// short paths for moonraker
-		setupMoonrakerAndUIRoutes(printerMux, remote, proxy, printerId, nil, nil)
+		setupMoonrakerAndUIRoutes(printerMux, remote, proxy, printerId, nil, nil, nil)
 
 		camerasMux := setupCameraMuxes(p.Cameras, printerId)
 
@@ -899,7 +946,7 @@ func setupCameraMuxes(cameras []GTPrinterCamerasConfig, printerId string) *http.
 		printerCameraPrefix := fmt.Sprintf("/printers/%s/cameras", printerId)
 
 		for _, cam := range cameras {
-			cameraId := fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d", cam.CameraIp, cam.CameraPort)))
+			cameraId := getCameraId(cam)
 			_, exists := visitedCameras[cameraId]
 			if !exists {
 				visitedCameras[cameraId] = cameraId
@@ -933,8 +980,8 @@ func hasMjpegStreamer(ip string, portPath string, wg *sync.WaitGroup, resultChan
 		return
 	}
 
-	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
+		defer resp.Body.Close()
 		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
 			resultChan <- ""
@@ -942,7 +989,7 @@ func hasMjpegStreamer(ip string, portPath string, wg *sync.WaitGroup, resultChan
 		}
 
 		if strings.Contains(string(respBody), "Details about the M-JPEG streamer") {
-			resultChan <- url
+			resultChan <- fmt.Sprintf("mjpeg-stream|%s", url)
 			return
 		}
 	}
@@ -950,14 +997,44 @@ func hasMjpegStreamer(ip string, portPath string, wg *sync.WaitGroup, resultChan
 	resultChan <- ""
 }
 
+func hasGo2Rtc(ip string, wg *sync.WaitGroup, go2rtcChan chan<- string) {
+	defer wg.Done()
+	url := fmt.Sprintf("http://%s:1984/api/streams", ip)
+	log.Println("Checking camera path", url)
+	resp, err := client.Get(url)
+	if err != nil {
+		go2rtcChan <- ""
+		return
+	}
+	if resp.StatusCode == http.StatusOK {
+		defer resp.Body.Close()
+		c := make(map[string]json.RawMessage)
+		err = json.NewDecoder(resp.Body).Decode(&c)
+
+		if err != nil {
+			go2rtcChan <- ""
+			return
+		}
+
+		for k, _ := range c {
+			go2rtcChan <- fmt.Sprintf("go2rtc|http://%s:1984/stream.html?src=%s", ip, k)
+		}
+	}
+
+	go2rtcChan <- ""
+}
+
 func findCameras(ip string, port string) []GTPrinterCamerasConfig {
 	var wg sync.WaitGroup
 	resultChan := make(chan string)
-	for _, path := range []string{":4408/webcam", ":4409/webcam", ":8080/webcam",
-		":8081/webcam2", ":8082/webcam3", ":8083/webcam4"} {
+	for _, path := range []string{":4408/webcam", ":4409/webcam", ":80/webcam",
+		":80/webcam2", ":80/webcam3", ":80/webcam4"} {
 		wg.Add(1)
 		go hasMjpegStreamer(ip, path, &wg, resultChan)
 	}
+
+	wg.Add(1)
+	go hasGo2Rtc(ip, &wg, resultChan)
 
 	go func() {
 		wg.Wait()
@@ -967,9 +1044,13 @@ func findCameras(ip string, port string) []GTPrinterCamerasConfig {
 	cameras := make([]GTPrinterCamerasConfig, 0)
 	for r := range resultChan {
 		if r != "" {
-			u, err := url.Parse(r)
+			parts := strings.Split(r, "|")
+			camType := parts[0]
+			fullUrl := parts[1]
+
+			u, err := url.Parse(fullUrl)
 			if err != nil {
-				log.Println("Failed to parse camera url. Skipping", r)
+				log.Println("Failed to parse camera url. Skipping", fullUrl)
 				continue
 			}
 			camHost, p, err := net.SplitHostPort(u.Host)
@@ -984,45 +1065,60 @@ func findCameras(ip string, port string) []GTPrinterCamerasConfig {
 				continue
 			}
 
-			cam := GTPrinterCamerasConfig{
-				Type:       "mjpeg-stream",
-				CameraIp:   camHost,
-				CameraPort: camPort,
-				Path:       fmt.Sprintf("%s/?action=stream", u.Path),
+			path := fmt.Sprintf("%s/?action=stream", u.Path)
+			if camType == "go2rtc" {
+				path = fmt.Sprintf("%s?%s", u.Path, u.RawQuery)
 			}
 
+			cam := GTPrinterCamerasConfig{
+				Type:       camType,
+				CameraIp:   camHost,
+				CameraPort: camPort,
+				Path:       path,
+			}
+			cameraId := getCameraId(cam)
+			cam.Id = cameraId
 			cameras = append(cameras, cam)
 		}
 	}
 
-	log.Println("mjpeg result", cameras)
+	log.Println("auto detected cameras", cameras)
 
 	return cameras
+}
 
-	/*
-		 	camUrl := fmt.Sprintf("http://%v:%v/server/database/item?namespace=webcams",
-				ip, port)
-			resp, err := client.Get(camUrl)
-			if err != nil {
+func getMoonrakerCameras(ip string, port string) []CameraInfo {
+	camUrl := fmt.Sprintf("http://%v:%v/server/webcams/list",
+		ip, port)
+	resp, err := client.Get(camUrl)
 
+	if err != nil {
+		return nil
+	}
+
+	cams := make([]CameraInfo, 0)
+	if resp.StatusCode == http.StatusOK {
+		defer resp.Body.Close()
+		var cameraResult MoonrakerCameras
+		err = json.NewDecoder(resp.Body).Decode(&cameraResult)
+		if err != nil {
+			log.Println("error decoding cameras from moonraker", err)
+		}
+
+		for _, c := range cameraResult.Result.Webcams {
+			// don't need any that has a full URL
+			_, err := url.Parse(c.UrlStream)
+			if c.Enabled && err == nil {
+				cams = append(cams, c)
 			}
+		}
+	}
 
-			defer resp.Body.Close()
-			var cameraResult MoonrakerCameras
-			err = json.NewDecoder(resp.Body).Decode(&cameraResult)
+	log.Println("cameras", cams)
+	return cams
+}
 
-			if err != nil {
-				log.Println("error decoding cameras from moonraker", err)
-			}
+func getCameraId(cam GTPrinterCamerasConfig) string {
+	return fmt.Sprintf("%d", hash(fmt.Sprintf("%s:%d%s", cam.CameraIp, cam.CameraPort, cam.Path)))
 
-			cams := make([]CameraInfo, 0)
-
-			for _, c := range cameraResult.Result.Value.Cameras {
-				if c.Enabled {
-					cams = append(cams, c)
-				}
-			}
-
-			return cams
-	*/
 }
