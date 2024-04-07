@@ -24,6 +24,12 @@ GuppyFLO is a self-hosted service that enables local/remote management of multip
 ```
 wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh | sh
 ```
+
+## Docker
+```
+docker-compose up -d
+```
+
 ## Features
 1. Global view of all your Klipper/Moonraker printers.
 2. Fluidd/Mainsail opens directly to desired printer (no need to mock with switching printers in the UI).
