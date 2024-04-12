@@ -5,6 +5,7 @@ import svgr from "vite-plugin-svgr"
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
+    host: '0.0.0.0',
     proxy: {
       '/v1/api/cameras': 'http://localhost:9873',
       '/v1/api/printers': 'http://localhost:9873',

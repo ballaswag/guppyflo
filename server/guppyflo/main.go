@@ -223,8 +223,10 @@ func main() {
 	if err != nil {
 		log.Panic(err)
 	}
+	mw := io.MultiWriter(os.Stdout, logFile)
+
 	defer logFile.Close()
-	log.SetOutput(logFile)
+	log.SetOutput(mw)
 
 	if err := run(context.Background()); err != nil {
 		log.Fatal(err)
@@ -828,9 +830,14 @@ func setupMoonrakerAndUIRoutes(
 	// setup route on ui root, e.g. fluid/ mainsail/
 	visitedCameras := make(map[string]string)
 	for _, cam := range cameras {
-		_, exists := visitedCameras[cam.Path]
+		parts := strings.Split(cam.Path, "?")
+		camPath := cam.Path
+		if len(parts) > 1 {
+			camPath = parts[0]
+		}
+		_, exists := visitedCameras[camPath]
 		if !exists {
-			visitedCameras[cam.Path] = cam.Path
+			visitedCameras[camPath] = camPath
 
 			cameraUrl, err2 := url.Parse(fmt.Sprintf("http://%s:%d", cam.CameraIp, cam.CameraPort))
 			if err2 != nil {
@@ -838,6 +845,7 @@ func setupMoonrakerAndUIRoutes(
 			}
 
 			pathParts := strings.Split(strings.TrimPrefix(cam.Path, "/"), "/")
+			// this check is to prevent creating a route at / where ui files are already being served
 			if len(pathParts) > 1 && (!strings.Contains(pathParts[0], "?") && !strings.Contains(pathParts[0], "=")) {
 				cameraPrefix := fmt.Sprintf(prefix+"/%s/", pathParts[0])
 				cameraProxy := httputil.NewSingleHostReverseProxy(cameraUrl)
@@ -974,6 +982,35 @@ func hasMjpegStreamer(ip string, portPath string, wg *sync.WaitGroup, resultChan
 	defer wg.Done()
 	url := fmt.Sprintf("http://%v%v", ip, portPath)
 	log.Println("Checking camera path", url)
+
+	// mjpeg streamer program.json endpoint
+	programUrl := fmt.Sprintf("%s/program.json", url)
+	log.Println("program url", programUrl)
+	programResponse, err := client.Get(programUrl)
+	log.Println("program err", err)
+	if err != nil {
+		resultChan <- ""
+		return
+	}
+
+	if programResponse.StatusCode == http.StatusOK {
+		defer programResponse.Body.Close()
+		c := make(map[string][]json.RawMessage)
+		log.Println("program json", c["inputs"])
+
+		err = json.NewDecoder(programResponse.Body).Decode(&c)
+		if err != nil {
+			resultChan <- ""
+			return
+		}
+		for i := range c["inputs"] {
+			resultChan <- fmt.Sprintf("mjpeg-stream|%s/?action=stream_%d", url, i)
+		}
+
+		resultChan <- ""
+		return
+	}
+
 	resp, err := client.Get(url)
 	if err != nil {
 		resultChan <- ""
@@ -1065,10 +1102,10 @@ func findCameras(ip string, port string) []GTPrinterCamerasConfig {
 				continue
 			}
 
-			path := fmt.Sprintf("%s/?action=stream", u.Path)
-			if camType == "go2rtc" {
-				path = fmt.Sprintf("%s?%s", u.Path, u.RawQuery)
-			}
+			// path := fmt.Sprintf("%s/?action=stream", u.Path)
+			// if camType == "go2rtc" {
+			path := fmt.Sprintf("%s?%s", u.Path, u.RawQuery)
+			// }
 
 			cam := GTPrinterCamerasConfig{
 				Type:       camType,
