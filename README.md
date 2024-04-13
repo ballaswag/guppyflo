@@ -50,7 +50,7 @@ docker-compose up -d
 ## Screenshot
 <p>
     <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/auto-camera-detection.gif" alt="Auto camera detection"/>
-    <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo.png" alt="GuppyFLO UI" width="600"/>
+    <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo.png" alt="GuppyFLO UI" width="580"/>
 </p>
 
 ## Configuration
