@@ -77,30 +77,34 @@ GuppyFLO supports secure and authenticated remote access using ngrok. You can si
 7. The ngrok remote URL is found in GuppyFLO logs, or in your [ngrok dashboard](https://dashboard.ngrok.com/cloud-edge/endpoints)
 
 <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo-settings.png" alt="GuppyFLO Settings" width="700"/>
-
+  
 ### Mobileraker via Tailscale
-If you enable `tailscale`, you can add all your guppy managed printer in Mobileraker.
+  
+<img src="https://github.com/ballaswag/guppyflo/assets/145094472/f2b2aa91-5b9a-4f53-873a-afcff14b1e12" alt="GuppyFLO Mobileraker Camera Setup gif" align="right" />
+  
+If you enable `tailscale`, you can view/manage your guppy printers with cameras remote in Mobileraker.
 
-1. In the GuppyFLO dashboard, find the printer link by pointing at the `Fluidd` button, e.g. `http://guppyflo/printer-390877414/fluidd`
-2. In Mobileraker, click `Advanced`
-3. `Printer - Address` is `guppyflo/printer-390877414/fluidd`
-4. `Websocket - Address` is `guppyflo/printer-390877414/fluidd/websocket`
-5. Click `Test Connection`, `Continue`
+1. In the GuppyFLO dashboard, click the `Network` button to find printer links, e.g. `http://guppyflo/printers/390877414/`
+2. The `Network` modal shows all configured printer/camera links.
+3. Click the `Copy` icon next to each link to copy it.
+4. In Mobileraker, click `Advanced`
+5. `Printer - Address` is `guppyflo/printers/390877414/`
+6. `Websocket - Address` is `guppyflo/printers/390877414/websocket`
+7. Click `Test Connection`, `Continue`
 
 ### Camera Setup
-GuppyFLO allows unlimited WebRTC camera access only limited by your ISP bandwidth cap. Currently, `go2rtc` is the only support WebRTC camera service, more support will be added later. Refer to [go2rtc](https://github.com/AlexxIT/go2rtc) for setting up webcams and WebRTC. To add a `go2rtc` WebRTC camera:
+GuppyFLO supports mjpeg and `go2rtc` webrtc streams. Refer to [go2rtc](https://github.com/AlexxIT/go2rtc) for setting up webcams and WebRTC. To add a `go2rtc` WebRTC camera:
 
 1. Open GuppyFLO Dashboard in a browser.
-2. Click `Add Printer`.
-3. In the modal, fill in your printer information and click `Add Camera`.
-4. `Camera Endpoint` is the endpoint to a `go2rtc` source, e.g. `/api/ws?src=mycamera1`.
-5. `Camera IP` is the host IP where `go2rtc` is running.
-6. `Camera Port` is the API port used by `go2rtc`
-7. `Camera Service` always `go2rtc` for now.
-8. Repeat step 3 to 7 to add more cameras.
-
-<img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo-cameras.png" alt="GuppyFLO Printer Camera" width="400"/>
-
+2. Click `Add Printer` and fill in printer detail.
+3. Click `Auto Detect` to discover camera streams hosted on the printer.
+4. You can also click `Add Camera` to manually fill in camera details.
+6. `Camera Endpoint` is the endpoint to a `go2rtc` source, e.g. `/api/ws?src=mycamera1`.
+7. `Camera IP` is the host IP where `go2rtc` is running.
+8. `Camera Port` is the API port used by `go2rtc`
+9. `Camera Service` is the stream type.
+10. Repeat step 4 to 9 to add more cameras.
+<br /><br /><br />
 ## Disclaimers
 * GuppyFLO is not associate with `ngrok`/`tailscale`. It uses these for remote access because they offer a free, secure, and programmable solution.
 * GuppyFLO uses a fork of fluidd/mainsail that enable path base access to moonraker websocket. The changes are tracked in this [fluid](https://github.com/ballaswag/fluidd) and [mainsail](https://github.com/ballaswag/mainsail) fork.
