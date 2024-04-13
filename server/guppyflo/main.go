@@ -985,9 +985,8 @@ func hasMjpegStreamer(ip string, portPath string, wg *sync.WaitGroup, resultChan
 
 	// mjpeg streamer program.json endpoint
 	programUrl := fmt.Sprintf("%s/program.json", url)
-	log.Println("program url", programUrl)
+	log.Println("mjpeg-streamer program url", programUrl)
 	programResponse, err := client.Get(programUrl)
-	log.Println("program err", err)
 	if err != nil {
 		resultChan <- ""
 		return
@@ -996,8 +995,6 @@ func hasMjpegStreamer(ip string, portPath string, wg *sync.WaitGroup, resultChan
 	if programResponse.StatusCode == http.StatusOK {
 		defer programResponse.Body.Close()
 		c := make(map[string][]json.RawMessage)
-		log.Println("program json", c["inputs"])
-
 		err = json.NewDecoder(programResponse.Body).Decode(&c)
 		if err != nil {
 			resultChan <- ""
@@ -1005,6 +1002,33 @@ func hasMjpegStreamer(ip string, portPath string, wg *sync.WaitGroup, resultChan
 		}
 		for i := range c["inputs"] {
 			resultChan <- fmt.Sprintf("mjpeg-stream|%s/?action=stream_%d", url, i)
+		}
+
+		resultChan <- ""
+		return
+	}
+
+	// ustreamer /state endpoint
+	ustreamerUrl := fmt.Sprintf("%s/state", url)
+	ustreamerResp, err := client.Get(ustreamerUrl)
+	log.Println("ustreamer url", ustreamerUrl)
+	if err != nil {
+		resultChan <- ""
+		return
+	}
+
+	if ustreamerResp.StatusCode == http.StatusOK {
+		defer ustreamerResp.Body.Close()
+		c := make(map[string]any)
+		err = json.NewDecoder(ustreamerResp.Body).Decode(&c)
+		if err != nil {
+			resultChan <- ""
+			return
+		}
+		ok, result := c["ok"].(bool)
+		if result && ok {
+			resultChan <- fmt.Sprintf("mjpeg-stream|%s/?action=stream", url)
+			return
 		}
 
 		resultChan <- ""
