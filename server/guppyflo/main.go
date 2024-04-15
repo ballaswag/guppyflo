@@ -4,16 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"hash/fnv"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"path/filepath"
 	"slices"
 	"sort"
 	"strconv"
@@ -165,7 +166,7 @@ func saveGTConfig(c GTConfig) {
 	if err != nil {
 		fmt.Println(err)
 	}
-	err = ioutil.WriteFile("guppytunnel.json", content, 0644)
+	err = os.WriteFile(configPath, content, 0644)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -204,7 +205,8 @@ var (
 	PrintersMapLock     sync.RWMutex
 
 	TSAuthURL    string
-	gtconfig     = loadGTConfig("guppytunnel.json")
+	gtconfig     GTConfig
+	configPath   string
 	GTConfigLock sync.RWMutex
 
 	c      = make(chan Pair[PrinterInfoStatsPair, chan bool])
@@ -217,6 +219,11 @@ var (
 )
 
 func main() {
+	configDir := flag.String("c", "./", "GuppyFLO configuration directory")
+	flag.Parse()
+	configPath = filepath.Join(*configDir, "guppytunnel.json")
+	gtconfig = loadGTConfig(configPath)
+
 	LOG_FILE := "guppyflo.log"
 
 	logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)

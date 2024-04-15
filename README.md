@@ -27,7 +27,7 @@ wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh
 
 ## Docker
 ```
-docker-compose up -d
+docker compose up -d
 ```
 
 ## Features

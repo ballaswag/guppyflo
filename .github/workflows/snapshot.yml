@@ -7,11 +7,13 @@ on:
 permissions:
   contents: write
   packages: write
-  # issues: write
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    env:
+      GORELEASER_CURRENT_TAG: "0.0.9" # any sem ver tag to bypass goreleaser semver check
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -3,6 +3,8 @@ services:
   guppyflo:
     container_name: guppyflo
     image: ghcr.io/ballaswag/guppyflo:latest
+    volumes:
+      - ./guppyflo_config:/guppyflo/config:delegated
     ports:
       - "9873:9873"
     restart: always
