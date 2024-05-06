@@ -53,7 +53,7 @@ restart_buildroot_service() {
 }
 
 ARCH=`uname -m`
-if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "x86_64" ]; then
+if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "armv7l" ]; then
     printf "${green}Installing GuppyFLO ${white}\n"
 
     ASSET="guppyflo_armv6.zip"
