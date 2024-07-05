@@ -32,7 +32,7 @@ substitute_service_template() {
 
 install_services() {
     sudo cp ${HOME}/guppyflo/services/guppyflo.service /etc/systemd/system
-    sudo $GUPPY_DIR/services/proxies.json $GUPPY_DIR/proxies.json
+    sudo ln -sf $GUPPY_DIR/services/proxies.json $GUPPY_DIR/proxies.json
     sudo systemctl enable guppyflo.service
     printf "${green}Configuring GuppyFLO services ${white}\n"
 }
@@ -40,10 +40,10 @@ install_services() {
 
 restart_service() {
     printf "${green}Restarting GuppyFLO service ${white}\n"
-    rm $GUPPY_DIR/guppyflo.log
+    rm $GUPPY_DIR/guppyflo.log &> /dev/null
     systemctl restart guppyflo
 
-    display_post_install_instruction
+    display_post_install_instruction $1
 }
 
 install_buildroot_service() {
@@ -56,7 +56,7 @@ install_buildroot_service() {
     else
         printf "${green}Configuring GuppyFLO services as HTTP Reverse Proxy${white}\n"
         ln -sf $GUPPY_DIR/services/S99guppyflo /etc/init.d/S99guppyflo
-    fin
+    fi
     ln -sf $GUPPY_DIR/services/respawn/libeinfo.so.1 /lib/libeinfo.so.1
     ln -sf $GUPPY_DIR/services/respawn/librc.so.1 /lib/librc.so.1
 }
@@ -65,10 +65,10 @@ restart_buildroot_service() {
     GUPPY_DIR=/usr/data/guppyflo
 
     printf "${green}Restarting GuppyFLO service. Please wait...${white}\n\n"
-    rm $GUPPY_DIR/guppyflo.log
+    rm $GUPPY_DIR/guppyflo.log &> /dev/null
     /etc/init.d/S99guppyflo restart &> /dev/null
 
-    display_post_install_instruction
+    display_post_install_instruction $1
 }
 
 display_post_install_instruction() {
@@ -82,10 +82,15 @@ display_post_install_instruction() {
             printf "https://login.tailscale.com/admin/dns\n\n"
             printf "3. Download the tailscale client, sign-in, and connect your client to your tailnet:\n"
             printf "https://tailscale.com/download\n\n"
+            if [ "$1" = "tcpproxy" ]; then
             printf "4. Remote access fluidd at:\n"
             printf "http://guppyflo\n\n"
             printf "5. Remote accees mainsail at:\n"
             printf "http://guppyflo:81\n\n"
+            else
+                printf "4. Access GuppyFLO UI at <this-host-ip>:9873 at:\n"
+                printf "http://<this-host-ip>:9873\n\n"
+            fi
             printf "For detail GuppyFLO guide checkout the project page:\n"
             printf "https://github.com/ballaswag/guppyflo\n\n"
             break;
@@ -105,14 +110,14 @@ if [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "x86_64" ] || [ "$ARCH" = "armv7l" ]; 
 	ASSET="guppyflo_x86_64.zip"
     fi
     
-    curl -s -L https://github.com/ballaswag/guppyflo/releases/latest/download/$ASSET -o /tmp/guppyflo.zip
+    curl -L https://github.com/ballaswag/guppyflo/releases/latest/download/$ASSET -o /tmp/guppyflo.zip
     stop_and_remove_service
     mkdir -p $GUPPY_DIR
     unzip /tmp/guppyflo.zip -d $GUPPY_DIR
 
-    substitute_service_template
+    substitute_service_template $1
     install_services
-    restart_service
+    restart_service $1
 
     printf "${green}Successfully installed GuppyFLO ${white}\n"
 elif [ "$ARCH" = "mips" ]; then
@@ -125,12 +130,12 @@ elif [ "$ARCH" = "mips" ]; then
     wget -q --no-check-certificate https://raw.githubusercontent.com/ballaswag/k1-discovery/main/bin/curl -O /tmp/curl
     chmod +x /tmp/curl
 
-    /tmp/curl -s -L https://github.com/ballaswag/guppyflo/releases/latest/download/$ASSET -o /tmp/guppyflo.zip
+    /tmp/curl -L https://github.com/ballaswag/guppyflo/releases/latest/download/$ASSET -o /tmp/guppyflo.zip
     stop_and_remove_service
     unzip /tmp/guppyflo.zip -d $GUPPY_DIR
     
     install_buildroot_service $1
-    restart_buildroot_service
+    restart_buildroot_service $1
 
     printf "${green}Successfully installed GuppyFLO ${white}\n"
 else

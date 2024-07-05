@@ -18,6 +18,8 @@ GuppyFLO is a self-hosted service that enables local/remote management of multip
   </a>
   <br>
     <a href='https://ko-fi.com/ballaswag' target='_blank'><img height='36' style='border:0px;height:36px;' src='https://storage.ko-fi.com/cdn/kofi3.png?v=3' border='0' alt='Buy Me a Coffee at ko-fi.com'></a>  
+    <br>
+    <a href="https://discord.gg/BpGRPkvtQP" target='_blank'><img src='https://discord.com/api/guilds/1184542740856447156/widget.png?style=banner2' alt='Guppy Platform Discord'></a>
 </p>
 
 ## Install
@@ -30,7 +32,7 @@ wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh
 
 ### TCP Proxy Mode
 ```
-wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh | sh -s -- -tcpproxy
+wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh | sh -s -- tcpproxy
 ```
 
 ## Docker
