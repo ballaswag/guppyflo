@@ -30,6 +30,8 @@ import (
 	ngrokclient "github.com/ngrok/ngrok-api-go/v5"
 	ngrokclientCredentials "github.com/ngrok/ngrok-api-go/v5/credentials"
 
+	tcpproxy "github.com/ballaswag/guppyflo/guppyflo/tcpproxy"
+
 	"tailscale.com/tsnet"
 )
 
@@ -220,6 +222,7 @@ var (
 
 func main() {
 	configDir := flag.String("c", "./", "GuppyFLO configuration directory")
+	useTcpProxy := flag.Bool("tcpproxy", false, "Use TCP Proxy instead of HTTP reverse proxy.")
 	flag.Parse()
 	configPath = filepath.Join(*configDir, "guppytunnel.json")
 	gtconfig = loadGTConfig(configPath)
@@ -235,8 +238,13 @@ func main() {
 	defer logFile.Close()
 	log.SetOutput(mw)
 
-	if err := run(context.Background()); err != nil {
-		log.Fatal(err)
+	if *useTcpProxy {
+		proxyPath := filepath.Join(*configDir, "proxies.json")
+		tcpproxy.Run(proxyPath)
+	} else {
+		if err := run(context.Background()); err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 

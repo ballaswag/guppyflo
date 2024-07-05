@@ -21,8 +21,16 @@ GuppyFLO is a self-hosted service that enables local/remote management of multip
 </p>
 
 ## Install
+
+### HTTP Reverse Proxy Mode
+
 ```
 wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh | sh
+```
+
+### TCP Proxy Mode
+```
+wget -O - https://raw.githubusercontent.com/ballaswag/guppyflo/main/installer.sh | sh -s -- -tcpproxy
 ```
 
 ## Docker
@@ -41,6 +49,7 @@ docker compose up -d
 8. Unlimited local access.
 9. Multiplatform support (runs on Linux/Windows x86_64, buildroot mipsle, PI ARMv6).
 10. Mobileraker via `tailscale`.
+11. Runs as a HTTP Reverse Proxy or TCP Proxy.
 
 ## Roadmap
 1. More camera service support (e.g. ustreamer/camera-streamer).
@@ -53,7 +62,34 @@ docker compose up -d
     <img src="https://github.com/ballaswag/guppyflo/blob/main/screenshots/guppyflo.png" alt="GuppyFLO UI" width="550"/>
 </p>
 
-## Configuration
+## TCP Proxy Mode
+Start GuppyFLO with argument `-tcpproxy` to use it in TCP Proxy Mode. In this mode, all proxied connections are defined in `proxies.json`. If `proxies.json` does not exists, create it in the same directory as `guppyflo` or the path specified by `-c`.
+
+### proxy.json
+It's a array JSON containing binding definitions as follow:
+
+* `from` - remote port used to access the proxied service
+* `to` - proxied service defined in `ip:port` format
+* `tls` - boolean to indicate if the proxied service supports TLS
+
+#### Example proxies.json
+Proxies moonraker using port `7125` to localhost on port `7125`, and proxies remote port `80` to localhost on port `4408`.
+```
+[
+    {
+        "from": 7125,
+        "to": "127.0.0.1:7125",
+        "tls": false
+    },
+    {
+        "from": 80,
+        "to": "127.0.0.1:4408",
+        "tls": false
+    }
+]
+```
+
+## HTTP Reverse Proxy Mode
 ### Local Access
 GuppyFLO starts locally on port `9873`. Open a browser and go to `<guppyflo-host-ip>:9873` for local accces.
 
