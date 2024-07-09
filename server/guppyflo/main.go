@@ -222,12 +222,12 @@ var (
 
 func main() {
 	configDir := flag.String("c", "./", "GuppyFLO configuration directory")
+	logDir := flag.String("l", "./", "GuppyFLO logs directory")
 	useTcpProxy := flag.Bool("tcpproxy", false, "Use TCP Proxy instead of HTTP reverse proxy.")
 	flag.Parse()
 	configPath = filepath.Join(*configDir, "guppytunnel.json")
 	gtconfig = loadGTConfig(configPath)
-
-	LOG_FILE := "guppyflo.log"
+	LOG_FILE := filepath.Join(*logDir, "guppyflo.log")
 
 	logFile, err := os.OpenFile(LOG_FILE, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
