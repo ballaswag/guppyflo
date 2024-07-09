@@ -10,9 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.3.0-canary-2f8f77602-20240229",
+    "react": "^19.0.0-rc-df783f9ea1-20240708",
     "react-copy-to-clipboard": "^5.1.0",
-    "react-dom": "^18.3.0-canary-2f8f77602-20240229",
+    "react-dom": "^19.0.0-rc-df783f9ea1-20240708",
     "react-router-dom": "^6.22.3"
   },
   "devDependencies": {
