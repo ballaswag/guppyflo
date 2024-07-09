@@ -73,6 +73,7 @@ restart_buildroot_service() {
 
 display_post_install_instruction() {
     TS_AUTH_URL=$(grep -o -m 1 "https://login.tailscale.com/.*" $GUPPY_DIR/guppyflo.log 2>/dev/null || echo "")
+    TS_AUTHED=$(grep -o -m 1 "ts already authenticated" $GUPPY_DIR/guppyflo.log 2>/dev/null || echo "")
 
     for i in `seq 1 10`; do
 	if [ ! -z "$TS_AUTH_URL" ]; then
@@ -83,10 +84,10 @@ display_post_install_instruction() {
             printf "3. Download the tailscale client, sign-in, and connect your client to your tailnet:\n"
             printf "https://tailscale.com/download\n\n"
             if [ "$1" = "tcpproxy" ]; then
-            printf "4. Remote access fluidd at:\n"
-            printf "http://guppyflo\n\n"
-            printf "5. Remote accees mainsail at:\n"
-            printf "http://guppyflo:81\n\n"
+		printf "4. Remote access fluidd at:\n"
+		printf "http://guppyflo\n\n"
+		printf "5. Remote accees mainsail at:\n"
+		printf "http://guppyflo:81\n\n"
             else
                 printf "4. Access GuppyFLO UI at <this-host-ip>:9873 at:\n"
                 printf "http://<this-host-ip>:9873\n\n"
@@ -96,8 +97,29 @@ display_post_install_instruction() {
             break;
 	fi
 
+	if [ ! -z "$TS_AUTHED" ]; then
+            printf "Your printer has already been added to your tailnet. Follow the next links to finish remote setup:\n"
+            printf "1. Enable Tailscale MagicDNS:\n"
+            printf "https://login.tailscale.com/admin/dns\n\n"
+            printf "2. Download the tailscale client, sign-in, and connect your client to your tailnet:\n"
+            printf "https://tailscale.com/download\n\n"
+            if [ "$1" = "tcpproxy" ]; then
+		printf "3. Remote access fluidd at:\n"
+		printf "http://guppyflo\n\n"
+		printf "4. Remote accees mainsail at:\n"
+		printf "http://guppyflo:81\n\n"
+            else
+                printf "3. Access GuppyFLO UI at <this-host-ip>:9873 at:\n"
+                printf "http://<this-host-ip>:9873\n\n"
+            fi
+            printf "For detail GuppyFLO guide checkout the project page:\n"
+            printf "https://github.com/ballaswag/guppyflo\n\n"
+            break;
+	fi
+
 	sleep 2
 	TS_AUTH_URL=$(grep -o -m 1 "https://login.tailscale.com/.*" $GUPPY_DIR/guppyflo.log 2>/dev/null || echo "")
+	TS_AUTHED=$(grep -o -m 1 "ts already authenticated" $GUPPY_DIR/guppyflo.log 2>/dev/null || echo "")
     done
 }
 
